@@ -30,11 +30,15 @@ namespace Boca.Middleware
             if (Options.Authority.EndsWith("/"))
                 Options.Authority = Options.Authority.TrimEnd('/');
 
+            // ReSharper disable once PossibleNullReferenceException
+            if (!Options.CallbackPath.StartsWith("/"))
+                Options.CallbackPath = "/" + Options.CallbackPath;
+            if (Options.CallbackPath.EndsWith("/"))
+                Options.CallbackPath = Options.CallbackPath.TrimEnd('/');
+
             // Set default options
             if (Options.MetadataAddress == null)
                 Options.MetadataAddress = Options.Authority + "/" + OpenIdProviderMetadataNames.Discovery;
-            if (Options.PostLogoutRedirectUri == null)
-                Options.PostLogoutRedirectUri = "/";
             if (Options.ResponseType == null)
                 Options.ResponseType = "code";
             if (Options.Scope == null)

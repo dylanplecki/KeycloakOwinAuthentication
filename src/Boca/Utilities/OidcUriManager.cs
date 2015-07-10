@@ -8,25 +8,29 @@ using Newtonsoft.Json.Linq;
 
 namespace Boca.Utilities
 {
-    internal class BocaUrlManager
+    internal class OidcUriManager
     {
-        private const string CachedContextPostfix = "_Cached_BocaUrlManager";
+        private const string CachedContextPostfix = "_Cached_BocaUriManager";
         private readonly BocAuthenticationOptions _options;
 
-        public static BocaUrlManager GetCachedContext(BocAuthenticationOptions options, bool initializeMetadata = true)
+        public string Issuer { get; private set; }
+        public Uri JwksUri { get; private set; }
+        public Uri AuthorizationEndpoint { get; private set; }
+        public Uri TokenEndpoint { get; private set; }
+        public Uri UserInfoEndpoint { get; private set; }
+
+        public static OidcUriManager GetCachedContext(BocAuthenticationOptions options)
         {
             var cachedContext = HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) ??
-                                new BocaUrlManager(options, initializeMetadata);
+                                new OidcUriManager(options);
 
-            return cachedContext as BocaUrlManager;
+            return cachedContext as OidcUriManager;
         }
 
-        public BocaUrlManager(BocAuthenticationOptions options, bool initializeMetadata = true)
+        public OidcUriManager(BocAuthenticationOptions options)
         {
             _options = options;
-
-            if (initializeMetadata)
-                RefreshMetadataAsync();
+            RefreshMetadataAsync();
         }
 
         public async void RefreshMetadataAsync()
@@ -56,12 +60,14 @@ namespace Boca.Utilities
             // Set internal URI properties
             try
             {
-                _authorizationEndpoint = new Uri(json["authorization_endpoint"].ToString());
-                _tokenEndpoint = new Uri(json["token_endpoint"].ToString());
-                _userInfoEndpoint = new Uri(json["userinfo_endpoint"].ToString());
+                Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
+                JwksUri = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
+                AuthorizationEndpoint = new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
+                TokenEndpoint = new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
+                UserInfoEndpoint = new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
 
                 // Check for values
-                if (_authorizationEndpoint == null || _tokenEndpoint == null || _userInfoEndpoint == null)
+                if (AuthorizationEndpoint == null || TokenEndpoint == null || UserInfoEndpoint == null)
                 {
                     throw new Exception("One or more metadata endpoints are missing");
                 }
@@ -75,57 +81,20 @@ namespace Boca.Utilities
             }
         }
 
-        #region Endpoint Getters
-
-        private Uri _authorizationEndpoint;
-
-        public Uri AuthorizationEndpoint
-        {
-            get
-            {
-                return _authorizationEndpoint ??
-                       new Uri(_options.Authority + "/" + OpenIdProviderMetadataNames.AuthorizationEndpoint);
-            }
-        }
-
-        private Uri _tokenEndpoint;
-
-        public Uri TokenEndpoint
-        {
-            get
-            {
-                return _tokenEndpoint ??
-                       new Uri(_options.Authority + "/" + OpenIdProviderMetadataNames.TokenEndpoint);
-            }
-        }
-
-        private Uri _userInfoEndpoint;
-
-        public Uri UserInfoEndpoint
-        {
-            get
-            {
-                return _userInfoEndpoint ??
-                       new Uri(_options.Authority + "/" + OpenIdProviderMetadataNames.UserInfoEndpoint);
-            }
-        }
-
-        #endregion
-
         #region Endpoint Content Builders
 
-        public HttpContent BuildAuthorizationEndpointContent(string redirectUri)
+        public HttpContent BuildAuthorizationEndpointContent(Uri callbackUri, Uri returnUri)
         {
             // Create state data container
             var stateData = new Dictionary<string, object>
             {
-                {"redirectUri", redirectUri}
+                {"redirectUri", returnUri}
             };
 
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, redirectUri},
+                {OpenIdConnectParameterNames.RedirectUri, callbackUri.ToString()},
                 {OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
                 {OpenIdConnectParameterNames.Scope, _options.Scope}
             };
@@ -146,14 +115,20 @@ namespace Boca.Utilities
             return new FormUrlEncodedContent(parameters);
         }
 
-        public HttpContent BuildTokenEndpointContent(string state)
+        public HttpContent BuildTokenEndpointContent(string code, string state)
         {
+            if (state == null) throw new ArgumentNullException("state");
+
+            // Retrieve state data from cache
             var stateData = StateCache.ReturnState(state);
+            if (stateData == null) return null; // Return null on invalid state
 
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, stateData["returnUri"] as string}
+                {OpenIdConnectParameterNames.RedirectUri, stateData["returnUri"] as string},
+                {OpenIdConnectParameterNames.GrantType, "authorization_code"},
+                {OpenIdConnectParameterNames.Code, code}
             };
 
             // Add optional parameters
