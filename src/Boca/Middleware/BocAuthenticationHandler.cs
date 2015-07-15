@@ -25,7 +25,14 @@ namespace Boca.Middleware
             // Check for valid callback URI
             if (Request.Uri.GetLeftPart(UriPartial.Path) == GenerateCallbackUri().ToString())
             {
-                return await ProcessAuthenticationCallbackAsync();
+                // Create authorization result from query
+                var authResult = new AuthorizationResponse(Request.Uri.Query);
+
+                // Check for errors
+                authResult.ThrowIfError();
+
+                // Process response
+                return await MakeTokenRequestAsync(authResult.Code, authResult.State);
             }
 
             return false;
@@ -89,18 +96,6 @@ namespace Boca.Middleware
                 Response.Redirect(Options.PostLogoutRedirectUri);
         }
 
-        private async Task<bool> ProcessAuthenticationCallbackAsync()
-        {
-            // Create authorization result from query
-            var authResult = new AuthorizationResponse(Request.Uri.Query);
-
-            // Check for errors
-            authResult.ThrowIfError();
-
-            // Process response
-            return await MakeTokenRequestAsync(authResult.Code, authResult.State);
-        }
-
         private async Task<bool> MakeTokenRequestAsync(string code, string state)
         {
             // Make HTTP call to token endpoint
@@ -128,6 +123,8 @@ namespace Boca.Middleware
             SecurityToken token;
             var jwtHandler = new JwtSecurityTokenHandler();
             var principal = jwtHandler.ValidateToken(tokenResponse.AccessToken, tokenParameters, out token);
+
+
         }
 
         private Uri GenerateCallbackUri()
