@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Boca.Properties")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("Keycloak OWIN Authentication")]
+[assembly: AssemblyDescription("Keycloak Authentication Middleware for ASP.NET OWIN")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("Boca.Properties")]
+[assembly: AssemblyProduct("OWIN")]
 [assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -11,9 +11,9 @@ using Newtonsoft.Json.Linq;
 
 namespace Owin.Security.Keycloak.Middleware
 {
-    internal class KeycloakAuthenticationHandler : AuthenticationHandler<BocAuthenticationOptions>
+    internal class KeycloakAuthenticationHandler : AuthenticationHandler<KeycloakAuthenticationOptions>
     {
-        private const string CookiePrefix = "boca_authtype_";
+        private const string CookiePrefix = "oidc_authtype_";
 
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
@@ -92,8 +92,8 @@ namespace Owin.Security.Keycloak.Middleware
             // TODO: Logout
 
             // Redirect response to post logout URI
-            if (Options.PostLogoutRedirectUri != null)
-                Response.Redirect(Options.PostLogoutRedirectUri);
+            if (Options.PostLogoutRedirectUrl != null)
+                Response.Redirect(Options.PostLogoutRedirectUrl);
         }
 
         private async Task<bool> MakeTokenRequestAsync(string code, string state)

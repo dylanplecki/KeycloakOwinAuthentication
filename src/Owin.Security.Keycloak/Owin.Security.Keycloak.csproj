@@ -84,7 +84,7 @@
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Configuration\BocAuthenticationOptions.cs" />
+    <Compile Include="Configuration\KeycloakAuthenticationOptions.cs" />
     <Compile Include="Extensions\AppBuilderExtension.cs" />
     <Compile Include="Extensions\HttpClientExtension.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />

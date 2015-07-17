@@ -8,7 +8,7 @@ namespace Owin.Security.Keycloak.Utilities
 {
     internal static class StateCache
     {
-        private const string CachePrefix = "boca_state_";
+        private const string CachePrefix = "oidc_state_";
         private static readonly TimeSpan DefaultCacheLife = new TimeSpan(0, 30, 0); // 30 Minutes
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

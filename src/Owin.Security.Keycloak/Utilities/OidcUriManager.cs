@@ -10,8 +10,8 @@ namespace Owin.Security.Keycloak.Utilities
 {
     internal class OidcUriManager
     {
-        private const string CachedContextPostfix = "_Cached_BocaUriManager";
-        private readonly BocAuthenticationOptions _options;
+        private const string CachedContextPostfix = "_Cached_OidcUriManager";
+        private readonly KeycloakAuthenticationOptions _options;
 
         public string Issuer { get; private set; }
         public Uri JwksUri { get; private set; }
@@ -19,7 +19,7 @@ namespace Owin.Security.Keycloak.Utilities
         public Uri TokenEndpoint { get; private set; }
         public Uri UserInfoEndpoint { get; private set; }
 
-        public static OidcUriManager GetCachedContext(BocAuthenticationOptions options)
+        public static OidcUriManager GetCachedContext(KeycloakAuthenticationOptions options)
         {
             var cachedContext = HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) ??
                                 new OidcUriManager(options);
@@ -27,7 +27,7 @@ namespace Owin.Security.Keycloak.Utilities
             return cachedContext as OidcUriManager;
         }
 
-        public OidcUriManager(BocAuthenticationOptions options)
+        public OidcUriManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
             RefreshMetadataAsync();
@@ -36,12 +36,12 @@ namespace Owin.Security.Keycloak.Utilities
         public async void RefreshMetadataAsync()
         {
             var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(_options.MetadataAddress);
+            var response = await httpClient.GetAsync(_options.GetMetadataUrl());
 
             // Fail on unreachable destination
             if (!response.IsSuccessStatusCode)
                 throw new Exception(string.Format("RefreshMetadataAsync: Metadata address unreachable ('{0}')",
-                    _options.MetadataAddress));
+                    _options.GetMetadataUrl()));
 
             // Try to get the JSON metadata object
             JObject json;
@@ -54,7 +54,7 @@ namespace Owin.Security.Keycloak.Utilities
                 // Fail on invalid JSON
                 throw new Exception(
                     string.Format("RefreshMetadataAsync: Metadata address returned invalid JSON object ('{0}')",
-                        _options.MetadataAddress), exception);
+                        _options.GetMetadataUrl()), exception);
             }
 
             // Set internal URI properties
@@ -77,7 +77,7 @@ namespace Owin.Security.Keycloak.Utilities
                 // Fail on invalid URI or metadata
                 throw new Exception(
                     string.Format("RefreshMetadataAsync: Metadata address returned incomplete data ('{0}')",
-                        _options.MetadataAddress), exception);
+                        _options.GetMetadataUrl()), exception);
             }
         }
 

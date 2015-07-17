@@ -1,19 +1,18 @@
 ﻿using System;
-using Microsoft.IdentityModel.Protocols;
 using Microsoft.Owin;
 using Microsoft.Owin.Security.Infrastructure;
 
 namespace Owin.Security.Keycloak.Middleware
 {
-    internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<BocAuthenticationOptions>
+    internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<KeycloakAuthenticationOptions>
     {
-        public KeycloakAuthenticationMiddleware(OwinMiddleware next, BocAuthenticationOptions options)
+        public KeycloakAuthenticationMiddleware(OwinMiddleware next, KeycloakAuthenticationOptions options)
             : base(next, options)
         {
             ValidateOptions();
         }
 
-        protected override AuthenticationHandler<BocAuthenticationOptions> CreateHandler()
+        protected override AuthenticationHandler<KeycloakAuthenticationOptions> CreateHandler()
         {
             return new KeycloakAuthenticationHandler();
         }
@@ -21,14 +20,16 @@ namespace Owin.Security.Keycloak.Middleware
         private void ValidateOptions()
         {
             // Verify required options
-            if (Options.Authority == null)
-                ThrowOptionNotFound("Authority");
+            if (Options.KeycloakUrl == null)
+                ThrowOptionNotFound("KeycloakUrl");
+            if (Options.Realm == null)
+                ThrowOptionNotFound("Realm");
             if (Options.CallbackPath == null) 
                 ThrowOptionNotFound("CallbackPath");
 
             // ReSharper disable once PossibleNullReferenceException
-            if (Options.Authority.EndsWith("/"))
-                Options.Authority = Options.Authority.TrimEnd('/');
+            if (Options.KeycloakUrl.EndsWith("/"))
+                Options.KeycloakUrl = Options.KeycloakUrl.TrimEnd('/');
 
             // ReSharper disable once PossibleNullReferenceException
             if (!Options.CallbackPath.StartsWith("/"))
@@ -37,8 +38,6 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.CallbackPath = Options.CallbackPath.TrimEnd('/');
 
             // Set default options
-            if (Options.MetadataAddress == null)
-                Options.MetadataAddress = Options.Authority + "/" + OpenIdProviderMetadataNames.Discovery;
             if (Options.ResponseType == null)
                 Options.ResponseType = "code";
             if (Options.Scope == null)
@@ -47,7 +46,7 @@ namespace Owin.Security.Keycloak.Middleware
 
         private void ThrowOptionNotFound(string optionName)
         {
-            var message = string.Format("BocAuthenticationOptions [id:{0}] : Required option '{1}' not set",
+            var message = string.Format("KeycloakAuthenticationOptions [id:{0}] : Required option '{1}' not set",
                 Options.AuthenticationType, optionName);
             throw new Exception(message);
         }
