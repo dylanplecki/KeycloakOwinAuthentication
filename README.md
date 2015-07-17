@@ -1,4 +1,4 @@
-# Keycloak Owin Authentication
+# Keycloak OWIN Authentication
 ###### Owin.Security.Keycloak - OWIN Authentication Middleware for ASP.NET Web Applications
 -------------------------------------------------------------------------------------------
 
