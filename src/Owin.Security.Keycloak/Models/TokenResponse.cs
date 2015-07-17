@@ -3,7 +3,7 @@ using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json.Linq;
 
-namespace Boca.Models
+namespace Owin.Security.Keycloak.Models
 {
     internal class TokenResponse : OidcBaseResponse
     {

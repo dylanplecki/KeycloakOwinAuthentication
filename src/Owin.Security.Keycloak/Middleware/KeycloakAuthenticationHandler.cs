@@ -3,15 +3,15 @@ using System.IdentityModel.Tokens;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Boca.Models;
-using Boca.Utilities;
+using Owin.Security.Keycloak.Models;
+using Owin.Security.Keycloak.Utilities;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
 using Newtonsoft.Json.Linq;
 
-namespace Boca.Middleware
+namespace Owin.Security.Keycloak.Middleware
 {
-    internal class BocAuthenticationHandler : AuthenticationHandler<BocAuthenticationOptions>
+    internal class KeycloakAuthenticationHandler : AuthenticationHandler<BocAuthenticationOptions>
     {
         private const string CookiePrefix = "boca_authtype_";
 

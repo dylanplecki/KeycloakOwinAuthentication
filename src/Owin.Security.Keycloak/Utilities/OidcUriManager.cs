@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Boca.Utilities
+namespace Owin.Security.Keycloak.Utilities
 {
     internal class OidcUriManager
     {

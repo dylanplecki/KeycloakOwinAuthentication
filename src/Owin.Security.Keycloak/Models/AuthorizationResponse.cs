@@ -2,7 +2,7 @@
 using System.Web;
 using Microsoft.IdentityModel.Protocols;
 
-namespace Boca.Models
+namespace Owin.Security.Keycloak.Models
 {
     internal class AuthorizationResponse : OidcBaseResponse
     {

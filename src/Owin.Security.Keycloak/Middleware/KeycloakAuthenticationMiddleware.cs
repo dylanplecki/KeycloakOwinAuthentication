@@ -3,11 +3,11 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.Owin;
 using Microsoft.Owin.Security.Infrastructure;
 
-namespace Boca.Middleware
+namespace Owin.Security.Keycloak.Middleware
 {
-    internal class BocAuthenticationMiddleware : AuthenticationMiddleware<BocAuthenticationOptions>
+    internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<BocAuthenticationOptions>
     {
-        public BocAuthenticationMiddleware(OwinMiddleware next, BocAuthenticationOptions options)
+        public KeycloakAuthenticationMiddleware(OwinMiddleware next, BocAuthenticationOptions options)
             : base(next, options)
         {
             ValidateOptions();
@@ -15,7 +15,7 @@ namespace Boca.Middleware
 
         protected override AuthenticationHandler<BocAuthenticationOptions> CreateHandler()
         {
-            return new BocAuthenticationHandler();
+            return new KeycloakAuthenticationHandler();
         }
 
         private void ValidateOptions()

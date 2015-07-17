@@ -1,7 +1,7 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Headers;
 
-namespace Boca
+namespace Keycloak
 {
     internal static class HttpClientExtension
     {

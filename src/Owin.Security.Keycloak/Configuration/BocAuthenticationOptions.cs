@@ -1,6 +1,6 @@
 ﻿using Microsoft.Owin.Security;
 
-namespace Boca
+namespace Owin.Security.Keycloak
 {
     public class BocAuthenticationOptions : AuthenticationOptions
     {

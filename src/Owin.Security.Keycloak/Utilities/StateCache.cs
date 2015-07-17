@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Web;
 using System.Web.Caching;
 
-namespace Boca.Utilities
+namespace Owin.Security.Keycloak.Utilities
 {
     internal static class StateCache
     {

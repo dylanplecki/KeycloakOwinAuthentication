@@ -2,7 +2,7 @@
 using System.Collections.Specialized;
 using Microsoft.IdentityModel.Protocols;
 
-namespace Boca.Models
+namespace Owin.Security.Keycloak.Models
 {
     internal abstract class OidcBaseResponse
     {

@@ -7,8 +7,8 @@
     <ProjectGuid>{16EDD97E-727A-4366-BF79-629295A162D1}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Boca</RootNamespace>
-    <AssemblyName>Boca</AssemblyName>
+    <RootNamespace>Owin.Security.Keycloak</RootNamespace>
+    <AssemblyName>Owin.Security.Keycloak</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <PublishUrl>publish\</PublishUrl>
@@ -87,8 +87,8 @@
     <Compile Include="Configuration\BocAuthenticationOptions.cs" />
     <Compile Include="Extensions\AppBuilderExtension.cs" />
     <Compile Include="Extensions\HttpClientExtension.cs" />
-    <Compile Include="Middleware\BocAuthenticationHandler.cs" />
-    <Compile Include="Middleware\BocAuthenticationMiddleware.cs" />
+    <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
+    <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
     <Compile Include="Models\AuthorizationResponse.cs" />
     <Compile Include="Models\OidcBaseResponse.cs" />
     <Compile Include="Models\TokenResponse.cs" />
