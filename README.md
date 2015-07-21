@@ -34,20 +34,20 @@ using Microsoft.Owin;
 using Owin;
 using Owin.Security.Keycloak;
 
-[assembly: OwinStartup(typeof(SampleOidcWebApp.Startup))]
+[assembly: OwinStartup(typeof(Sample.KeycloakAuth.Startup))]
 
-namespace SampleOidcWebApp
+namespace Sample.KeycloakAuth
 {
     public class Startup
     {
         public void Configuration(IAppBuilder app)
         {
-            app.UseKeycloakAuthentication(new BasicOidcAuthenticationOptions
+            app.UseKeycloakAuthentication(new KeycloakAuthenticationOptions
             {
-                Authority = "https://localhost:8080/auth",
-                ClientId = "SampleOidcWebApp",
-                ClientSecret = "03bab34b-e2c2-4126-b922-9e0dcc83c7f3",
-                ResponseType = "code"
+                Realm = "master",
+                ClientId = "sample_keycloakAuth",
+                ClientSecret = "3a06aae9-53d2-43a9-ba00-f188ff7b6d99",
+                KeycloakUrl = "http://keycloak.site.com/auth",
             });
         }
     }
