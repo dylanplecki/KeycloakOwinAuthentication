@@ -1,13 +1,15 @@
 ﻿using System;
 using System.IdentityModel.Tokens;
+using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
-using Owin.Security.Keycloak.Models;
-using Owin.Security.Keycloak.Utilities;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
 using Newtonsoft.Json.Linq;
+using Owin.Security.Keycloak.Models;
+using Owin.Security.Keycloak.Utilities;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -23,7 +25,8 @@ namespace Owin.Security.Keycloak.Middleware
         public override async Task<bool> InvokeAsync()
         {
             // Check for valid callback URI
-            if (Request.Uri.GetLeftPart(UriPartial.Path) == GenerateCallbackUri().ToString())
+            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GenerateCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
                 var authResult = new AuthorizationResponse(Request.Uri.Query);
@@ -45,7 +48,10 @@ namespace Owin.Security.Keycloak.Middleware
 
         protected override async Task ApplyResponseChallengeAsync()
         {
-            await LoginRedirectAsync();
+            if (Response.StatusCode == 401)
+            {
+                await LoginRedirectAsync();
+            }
         }
 
         #region OIDC Helper Functions
@@ -79,9 +85,9 @@ namespace Owin.Security.Keycloak.Middleware
         {
             // Generate login URI
             var returnUri = Request.Uri;
-            var uriManager = OidcUriManager.GetCachedContext(Options);
+            var uriManager = await OidcUriManager.GetCachedContext(Options);
             var loginUrl = uriManager.AuthorizationEndpoint;
-            var loginParams = uriManager.BuildAuthorizationEndpointContent(GenerateCallbackUri(), returnUri);
+            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, returnUri);
 
             // Redirect response to login
             Response.Redirect(loginUrl + "?" + await loginParams.ReadAsStringAsync());
@@ -98,38 +104,71 @@ namespace Owin.Security.Keycloak.Middleware
 
         private async Task<bool> MakeTokenRequestAsync(string code, string state)
         {
+            // Validate passed state
+            var stateData = StateCache.ReturnState(state);
+            if (stateData == null)
+                return
+                    await
+                        GenerateErrorResponseAsync(HttpStatusCode.BadRequest,
+                            "Invalid state: Please reattempt the request");
+
             // Make HTTP call to token endpoint
+            var uriManager = await OidcUriManager.GetCachedContext(Options);
             HttpResponseMessage response;
             try
             {
                 var client = new HttpClient();
-                var uriManager = OidcUriManager.GetCachedContext(Options);
                 response =
-                    await client.PostAsync(uriManager.TokenEndpoint, uriManager.BuildTokenEndpointContent(code, state));
+                    await
+                        client.PostAsync(uriManager.TokenEndpoint,
+                            uriManager.BuildTokenEndpointContent(Request.Uri, code));
             }
             catch (Exception exception)
             {
-                throw new Exception("Cannot access token endpoint: Check inner exception", exception);
+                throw new Exception("Keycloak token endpoint is inaccessible", exception);
             }
 
-            // Parse response into JSON object and convert to model
-            var json = JObject.Parse(await response.Content.ReadAsStringAsync());
-            var tokenResponse = new TokenResponse(json);
+            // Check for HTTP errors
+            if (!response.IsSuccessStatusCode)
+                throw new Exception("Keycloak token endpoint returned an error");
 
-            // Load token validation parameters
-            var tokenParameters = new TokenValidationParameters(); // TODO: Check parameters
+            // Parse response into JSON object (async)
+            var contentTask = response.Content.ReadAsStringAsync();
+            var payloadJson = await Task.Run(async () => // Run on background thread
+            {
+                // TODO: Sanity validation below
+                var json = JObject.Parse(await contentTask);
+                var accessToken = json["access_token"];
+                var encodedData = accessToken.ToString().Split('.')[1];
+                encodedData += new string('=', encodedData.Length%4);
+                var tokenPayload = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
+                return JObject.Parse(tokenPayload);
+            });
 
-            // Validate JWT AuthCode and load identity principal
-            SecurityToken token;
-            var jwtHandler = new JwtSecurityTokenHandler();
-            var principal = jwtHandler.ValidateToken(tokenResponse.AccessToken, tokenParameters, out token);
+            // Load identity and principle to OWIN
+            var claims = JwtClaimGenerator.GenerateClaims(payloadJson);
+            var identity = new ClaimsIdentity(claims, Options.AuthenticationType, ClaimTypes.Name, ClaimTypes.Role);
+            var principal = new ClaimsPrincipal(identity);
+            Context.Authentication.User = principal;
 
+            // Redirect to returnUri
+            var returnUri = stateData["returnUri"] as Uri ?? new Uri(Request.Uri.GetLeftPart(UriPartial.Authority));
+            Response.Redirect(returnUri.ToString());
 
+            // Stop processing OWIN pipeline for redirect
+            return true;
         }
 
-        private Uri GenerateCallbackUri()
+        private async Task<bool> GenerateErrorResponseAsync(HttpStatusCode statusCode, string errorMessage)
         {
-            return new Uri(Request.Uri.GetLeftPart(UriPartial.Authority) + Options.CallbackPath);
+            // Generate error response
+            var task = Response.WriteAsync(errorMessage);
+            Response.StatusCode = (int) statusCode;
+            Response.ContentType = "text/plain";
+
+            // Stop processing other OWIN middleware
+            await task;
+            return true;
         }
 
         #endregion

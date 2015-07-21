@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading.Tasks;
 using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
@@ -19,21 +20,26 @@ namespace Owin.Security.Keycloak.Utilities
         public Uri TokenEndpoint { get; private set; }
         public Uri UserInfoEndpoint { get; private set; }
 
-        public static OidcUriManager GetCachedContext(KeycloakAuthenticationOptions options)
+        public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
         {
-            var cachedContext = HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) ??
-                                new OidcUriManager(options);
+            var cachedContext =
+                HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcUriManager;
 
-            return cachedContext as OidcUriManager;
+            if (cachedContext == null)
+            {
+                cachedContext = new OidcUriManager(options);
+                await cachedContext.RefreshMetadataAsync();
+            }
+
+            return cachedContext;
         }
 
-        public OidcUriManager(KeycloakAuthenticationOptions options)
+        private OidcUriManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
-            RefreshMetadataAsync();
         }
 
-        public async void RefreshMetadataAsync()
+        public async Task RefreshMetadataAsync()
         {
             var httpClient = new HttpClient();
             var response = await httpClient.GetAsync(_options.GetMetadataUrl());
@@ -81,20 +87,25 @@ namespace Owin.Security.Keycloak.Utilities
             }
         }
 
+        public Uri GenerateCallbackUri(Uri requestUri)
+        {
+            return new Uri(requestUri.GetLeftPart(UriPartial.Authority) + _options.CallbackPath);
+        }
+
         #region Endpoint Content Builders
 
-        public HttpContent BuildAuthorizationEndpointContent(Uri callbackUri, Uri returnUri)
+        public HttpContent BuildAuthorizationEndpointContent(Uri requestUri, Uri returnUri)
         {
             // Create state data container
             var stateData = new Dictionary<string, object>
             {
-                {"redirectUri", returnUri}
+                {"returnUri", returnUri}
             };
 
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, callbackUri.ToString()},
+                {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
                 {OpenIdConnectParameterNames.Scope, _options.Scope}
             };
@@ -115,18 +126,12 @@ namespace Owin.Security.Keycloak.Utilities
             return new FormUrlEncodedContent(parameters);
         }
 
-        public HttpContent BuildTokenEndpointContent(string code, string state)
+        public HttpContent BuildTokenEndpointContent(Uri requestUri, string code)
         {
-            if (state == null) throw new ArgumentNullException("state");
-
-            // Retrieve state data from cache
-            var stateData = StateCache.ReturnState(state);
-            if (stateData == null) return null; // Return null on invalid state
-
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, stateData["returnUri"] as string},
+                {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.GrantType, "authorization_code"},
                 {OpenIdConnectParameterNames.Code, code}
             };
@@ -139,7 +144,9 @@ namespace Owin.Security.Keycloak.Utilities
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
                     parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
-
+            var test = new FormUrlEncodedContent(parameters).ReadAsStringAsync();
+            test.Wait();
+            var res = test.Result;
             return new FormUrlEncodedContent(parameters);
         }
 

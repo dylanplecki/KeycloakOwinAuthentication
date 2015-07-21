@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.Owin;
 using Microsoft.Owin.Security.Infrastructure;
 
@@ -6,7 +7,10 @@ namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<KeycloakAuthenticationOptions>
     {
-        public KeycloakAuthenticationMiddleware(OwinMiddleware next, KeycloakAuthenticationOptions options)
+        private static readonly List<string> ReservedAuthenticationTypes = new List<string>();
+
+        public KeycloakAuthenticationMiddleware(OwinMiddleware next, IAppBuilder app,
+            KeycloakAuthenticationOptions options)
             : base(next, options)
         {
             ValidateOptions();
@@ -19,13 +23,33 @@ namespace Owin.Security.Keycloak.Middleware
 
         private void ValidateOptions()
         {
+            // Check to ensure authentication type isn't already used
+            var authType = Options.AuthenticationType;
+            if (ReservedAuthenticationTypes.Contains(authType))
+            {
+                throw new Exception(
+                    string.Format(
+                        "KeycloakAuthenticationOptions: Authentication type '{0}' already used; required unique",
+                        authType));
+            }
+            ReservedAuthenticationTypes.Add(authType);
+
             // Verify required options
             if (Options.KeycloakUrl == null)
                 ThrowOptionNotFound("KeycloakUrl");
             if (Options.Realm == null)
                 ThrowOptionNotFound("Realm");
-            if (Options.CallbackPath == null) 
-                ThrowOptionNotFound("CallbackPath");
+
+            // Set default options
+            if (Options.ResponseType == null)
+                Options.ResponseType = "code";
+            if (Options.Scope == null)
+                Options.Scope = "openid";
+            if (Options.CallbackPath == null)
+                Options.CallbackPath = string.Format("/owin/security/keycloak/{0}/callback",
+                    Uri.EscapeDataString(Options.AuthenticationType));
+
+            // Validate options
 
             // ReSharper disable once PossibleNullReferenceException
             if (Options.KeycloakUrl.EndsWith("/"))
@@ -36,12 +60,6 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.CallbackPath = "/" + Options.CallbackPath;
             if (Options.CallbackPath.EndsWith("/"))
                 Options.CallbackPath = Options.CallbackPath.TrimEnd('/');
-
-            // Set default options
-            if (Options.ResponseType == null)
-                Options.ResponseType = "code";
-            if (Options.Scope == null)
-                Options.Scope = "openid";
         }
 
         private void ThrowOptionNotFound(string optionName)

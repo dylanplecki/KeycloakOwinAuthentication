@@ -5,7 +5,7 @@ namespace Owin.Security.Keycloak
 {
     public class KeycloakAuthenticationOptions : AuthenticationOptions
     {
-        private const string DefaultAuthenticationType = "KeycloakAuthenticationOptions";
+        private const string DefaultAuthenticationType = "KeycloakAuthentication";
 
         public string KeycloakUrl { get; set; }
 
@@ -26,7 +26,7 @@ namespace Owin.Security.Keycloak
 
         public string GetAuthority()
         {
-            return KeycloakUrl + "/auth/realms/" + Realm;
+            return KeycloakUrl + "/realms/" + Realm;
         }
 
         public string GetMetadataUrl()

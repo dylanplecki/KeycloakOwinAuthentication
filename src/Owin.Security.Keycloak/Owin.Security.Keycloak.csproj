@@ -90,6 +90,7 @@
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
     <Compile Include="Models\AuthorizationResponse.cs" />
+    <Compile Include="Utilities\JwtClaimGenerator.cs" />
     <Compile Include="Models\OidcBaseResponse.cs" />
     <Compile Include="Models\TokenResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
