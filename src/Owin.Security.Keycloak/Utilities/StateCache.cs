@@ -34,5 +34,11 @@ namespace Owin.Security.Keycloak.Utilities
         {
             return GetCache().Remove(stateKey) as Dictionary<string, object>;
         }
+
+        public static class PropertyNames
+        {
+            public const string ReturnUri = "returnUri";
+            public const string AuthenticationProperties = "authProperties";
+        }
     }
 }

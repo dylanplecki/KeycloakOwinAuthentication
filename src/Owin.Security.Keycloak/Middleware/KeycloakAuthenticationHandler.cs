@@ -1,5 +1,5 @@
 ﻿using System;
-using System.IdentityModel.Tokens;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
@@ -15,14 +15,7 @@ namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationHandler : AuthenticationHandler<KeycloakAuthenticationOptions>
     {
-        private const string CookiePrefix = "oidc_authtype_";
-
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
-        {
-            return await ValidateCookie();
-        }
-
-        public override async Task<bool> InvokeAsync()
         {
             // Check for valid callback URI
             var uriManager = await OidcUriManager.GetCachedContext(Options);
@@ -38,71 +31,85 @@ namespace Owin.Security.Keycloak.Middleware
                 return await MakeTokenRequestAsync(authResult.Code, authResult.State);
             }
 
+            return null;
+        }
+
+        public override async Task<bool> InvokeAsync()
+        {
+            var ticket = await AuthenticateAsync();
+            if (ticket == null) return false;
+
+            if (ticket.Identity != null)
+            {
+                Request.Context.Authentication.SignIn(ticket.Properties, ticket.Identity);
+            }
+
+            // Redirect back to the original secured resource, if any
+            if (!string.IsNullOrWhiteSpace(ticket.Properties.RedirectUri))
+            {
+                Response.Redirect(ticket.Properties.RedirectUri);
+                return true;
+            }
+
             return false;
         }
 
         protected override async Task ApplyResponseGrantAsync()
         {
-            // TODO
+            var signout = Helper.LookupSignOut(Options.AuthenticationType, Options.AuthenticationMode);
+
+            if (signout != null)
+            {
+                await LogoutRedirectAsync(signout.Properties);
+            }
         }
 
         protected override async Task ApplyResponseChallengeAsync()
         {
             if (Response.StatusCode == 401)
             {
-                await LoginRedirectAsync();
+                var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
+                await LoginRedirectAsync(challenge.Properties);
             }
         }
 
         #region OIDC Helper Functions
 
-        private async Task<AuthenticationTicket> ValidateCookie()
+        private async Task LoginRedirectAsync(AuthenticationProperties properties)
         {
-            var authCookie = Request.Cookies[CookiePrefix + Options.AuthenticationType.ToLower()];
+            if (string.IsNullOrEmpty(properties.RedirectUri))
+            {
+                properties.RedirectUri = Request.Uri.ToString();
+            }
 
-            // Cookie not found
-            if (authCookie == null) return null;
+            // Create state
+            var stateData = new Dictionary<string, object>
+            {
+                {StateCache.PropertyNames.AuthenticationProperties, properties}
+            };
+            var state = StateCache.CreateState(stateData);
 
-            // Load token validation parameters
-            var tokenParameters = new TokenValidationParameters(); // TODO: Check parameters
-
-            // Validate JWT and load identity principal
-            SecurityToken token;
-            var jwtHandler = new JwtSecurityTokenHandler();
-            var principal = jwtHandler.ValidateToken(authCookie, tokenParameters, out token);
-
-            // Get primary identity
-            var identity = principal.Identity as ClaimsIdentity;
-            if (identity == null) return null;
-
-            // Generate authentication properties
-            var properties = new AuthenticationProperties(); // TODO: Check properties
-
-            return new AuthenticationTicket(identity, properties);
-        }
-
-        private async Task LoginRedirectAsync()
-        {
             // Generate login URI
-            var returnUri = Request.Uri;
             var uriManager = await OidcUriManager.GetCachedContext(Options);
             var loginUrl = uriManager.AuthorizationEndpoint;
-            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, returnUri);
+            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
 
             // Redirect response to login
             Response.Redirect(loginUrl + "?" + await loginParams.ReadAsStringAsync());
         }
 
-        private async Task LogoutRedirectAsync()
+        private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
-            // TODO: Logout
+            // Generate logout URI
+            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var logoutUrl = uriManager.EndSessionEndpoint;
+            var logoutParams = uriManager.BuildEndSessionEndpointContent(null, properties.RedirectUri);
 
-            // Redirect response to post logout URI
-            if (Options.PostLogoutRedirectUrl != null)
-                Response.Redirect(Options.PostLogoutRedirectUrl);
+            // Redirect response to logout
+            Response.Redirect(logoutUrl + "?" + await logoutParams.ReadAsStringAsync());
         }
 
-        private async Task<bool> MakeTokenRequestAsync(string code, string state)
+        private async Task<AuthenticationTicket> MakeTokenRequestAsync(string code, string state)
         {
             // Validate passed state
             var stateData = StateCache.ReturnState(state);
@@ -136,7 +143,7 @@ namespace Owin.Security.Keycloak.Middleware
             var contentTask = response.Content.ReadAsStringAsync();
             var payloadJson = await Task.Run(async () => // Run on background thread
             {
-                // TODO: Sanity validation below
+                // TODO: Provide sanity validation below
                 var json = JObject.Parse(await contentTask);
                 var accessToken = json["access_token"];
                 var encodedData = accessToken.ToString().Split('.')[1];
@@ -145,30 +152,31 @@ namespace Owin.Security.Keycloak.Middleware
                 return JObject.Parse(tokenPayload);
             });
 
-            // Load identity and principle to OWIN
+            // Generate claims and create identity
             var claims = JwtClaimGenerator.GenerateClaims(payloadJson);
             var identity = new ClaimsIdentity(claims, Options.AuthenticationType, ClaimTypes.Name, ClaimTypes.Role);
-            var principal = new ClaimsPrincipal(identity);
-            Context.Authentication.User = principal;
 
             // Redirect to returnUri
-            var returnUri = stateData["returnUri"] as Uri ?? new Uri(Request.Uri.GetLeftPart(UriPartial.Authority));
+            var returnUri = stateData[StateCache.PropertyNames.ReturnUri] as Uri ??
+                            new Uri(Request.Uri.GetLeftPart(UriPartial.Authority));
             Response.Redirect(returnUri.ToString());
 
             // Stop processing OWIN pipeline for redirect
-            return true;
+            return new AuthenticationTicket(identity,
+                stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
+                new AuthenticationProperties());
         }
 
-        private async Task<bool> GenerateErrorResponseAsync(HttpStatusCode statusCode, string errorMessage)
+        private async Task<AuthenticationTicket> GenerateErrorResponseAsync(HttpStatusCode statusCode,
+            string errorMessage)
         {
             // Generate error response
             var task = Response.WriteAsync(errorMessage);
             Response.StatusCode = (int) statusCode;
             Response.ContentType = "text/plain";
 
-            // Stop processing other OWIN middleware
             await task;
-            return true;
+            return null;
         }
 
         #endregion

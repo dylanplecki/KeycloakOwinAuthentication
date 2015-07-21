@@ -1,4 +1,5 @@
 ﻿using Microsoft.Owin;
+using Microsoft.Owin.Security.Cookies;
 using Owin;
 using Owin.Security.Keycloak;
 
@@ -10,12 +11,13 @@ namespace Sample.KeycloakAuth
     {
         public void Configuration(IAppBuilder app)
         {
+            app.UseCookieAuthentication(new CookieAuthenticationOptions());
             app.UseKeycloakAuthentication(new KeycloakAuthenticationOptions
             {
                 Realm = "master",
-                ClientId = "owin_ext_test_client",
-                ClientSecret = "f48cec95-ba2d-4c13-b85c-292782e48020",
-                KeycloakUrl = "http://mdw2k8dazbus01.dow.com:8080/auth",
+                ClientId = "sample_keycloakAuth",
+                ClientSecret = "3a06aae9-53d2-43a9-ba00-f188ff7b6d99",
+                KeycloakUrl = "http://keycloak.site.com/auth",
             });
         }
     }

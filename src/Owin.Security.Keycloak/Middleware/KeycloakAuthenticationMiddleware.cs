@@ -60,11 +60,26 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.CallbackPath = "/" + Options.CallbackPath;
             if (Options.CallbackPath.EndsWith("/"))
                 Options.CallbackPath = Options.CallbackPath.TrimEnd('/');
+
+            if (!Uri.IsWellFormedUriString(Options.KeycloakUrl, UriKind.Absolute))
+                ThrowInvalidOption("KeycloakUrl");
+            if (!Uri.IsWellFormedUriString(Options.CallbackPath, UriKind.Relative))
+                ThrowInvalidOption("CallbackPath");
+            if (Options.PostLogoutRedirectUrl != null &&
+                !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.Absolute))
+                ThrowInvalidOption("PostLogoutRedirectUrl");
         }
 
         private void ThrowOptionNotFound(string optionName)
         {
             var message = string.Format("KeycloakAuthenticationOptions [id:{0}] : Required option '{1}' not set",
+                Options.AuthenticationType, optionName);
+            throw new Exception(message);
+        }
+
+        private void ThrowInvalidOption(string optionName)
+        {
+            var message = string.Format("KeycloakAuthenticationOptions [id:{0}] : Provided option '{1}' is invalid",
                 Options.AuthenticationType, optionName);
             throw new Exception(message);
         }

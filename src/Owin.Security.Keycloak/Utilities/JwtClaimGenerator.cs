@@ -7,7 +7,7 @@ namespace Owin.Security.Keycloak.Utilities
 {
     internal static class JwtClaimGenerator
     {
-        public static List<Claim> GenerateClaims(JObject json)
+        public static IEnumerable<Claim> GenerateClaims(JObject json)
         {
             var claims = new List<Claim>();
             var audience = json["aud"];

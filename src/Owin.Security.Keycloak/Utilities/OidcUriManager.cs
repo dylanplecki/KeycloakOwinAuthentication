@@ -19,6 +19,7 @@ namespace Owin.Security.Keycloak.Utilities
         public Uri AuthorizationEndpoint { get; private set; }
         public Uri TokenEndpoint { get; private set; }
         public Uri UserInfoEndpoint { get; private set; }
+        public Uri EndSessionEndpoint { get; private set; }
 
         public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
         {
@@ -71,6 +72,7 @@ namespace Owin.Security.Keycloak.Utilities
                 AuthorizationEndpoint = new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
                 TokenEndpoint = new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
                 UserInfoEndpoint = new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
+                EndSessionEndpoint = new Uri(json[OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
 
                 // Check for values
                 if (AuthorizationEndpoint == null || TokenEndpoint == null || UserInfoEndpoint == null)
@@ -94,20 +96,15 @@ namespace Owin.Security.Keycloak.Utilities
 
         #region Endpoint Content Builders
 
-        public HttpContent BuildAuthorizationEndpointContent(Uri requestUri, Uri returnUri)
+        public HttpContent BuildAuthorizationEndpointContent(Uri requestUri, string state)
         {
-            // Create state data container
-            var stateData = new Dictionary<string, object>
-            {
-                {"returnUri", returnUri}
-            };
-
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
                 {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
-                {OpenIdConnectParameterNames.Scope, _options.Scope}
+                {OpenIdConnectParameterNames.Scope, _options.Scope},
+                {OpenIdConnectParameterNames.State, state}
             };
 
             // Add optional parameters
@@ -118,10 +115,6 @@ namespace Owin.Security.Keycloak.Utilities
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
                     parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
-
-            // Create state in cache
-            var state = StateCache.CreateState(stateData);
-            parameters.Add(OpenIdConnectParameterNames.State, state);
 
             return new FormUrlEncodedContent(parameters);
         }
@@ -144,9 +137,30 @@ namespace Owin.Security.Keycloak.Utilities
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
                     parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
-            var test = new FormUrlEncodedContent(parameters).ReadAsStringAsync();
-            test.Wait();
-            var res = test.Result;
+
+            return new FormUrlEncodedContent(parameters);
+        }
+
+        public HttpContent BuildEndSessionEndpointContent(string idToken = null, string postLogoutRedirectUrl = null)
+        {
+            // Create parameter dictionary
+            var parameters = new Dictionary<string, string>();
+            
+            // Add optional parameters
+            if (!string.IsNullOrWhiteSpace(idToken))
+                parameters.Add(OpenIdConnectParameterNames.IdTokenHint, idToken);
+
+            // Provided postlogouturl takes precedence over options
+            if (!string.IsNullOrWhiteSpace(postLogoutRedirectUrl) &&
+                Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.Absolute))
+            {
+                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, postLogoutRedirectUrl);
+            }
+            else if (!string.IsNullOrWhiteSpace(_options.PostLogoutRedirectUrl))
+            {
+                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, _options.PostLogoutRedirectUrl);
+            }
+
             return new FormUrlEncodedContent(parameters);
         }
 
