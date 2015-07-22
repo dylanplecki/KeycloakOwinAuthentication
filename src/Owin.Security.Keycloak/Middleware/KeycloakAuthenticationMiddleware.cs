@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.Owin;
+using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
 
 namespace Owin.Security.Keycloak.Middleware
@@ -9,10 +10,13 @@ namespace Owin.Security.Keycloak.Middleware
     {
         private static readonly List<string> ReservedAuthenticationTypes = new List<string>();
 
+        private IAppBuilder App { get; set; }
+
         public KeycloakAuthenticationMiddleware(OwinMiddleware next, IAppBuilder app,
             KeycloakAuthenticationOptions options)
             : base(next, options)
         {
+            App = app;
             ValidateOptions();
         }
 
@@ -41,13 +45,15 @@ namespace Owin.Security.Keycloak.Middleware
                 ThrowOptionNotFound("Realm");
 
             // Set default options
-            if (Options.ResponseType == null)
+            if (string.IsNullOrWhiteSpace(Options.ResponseType))
                 Options.ResponseType = "code";
-            if (Options.Scope == null)
+            if (string.IsNullOrWhiteSpace(Options.Scope))
                 Options.Scope = "openid";
-            if (Options.CallbackPath == null)
+            if (string.IsNullOrWhiteSpace(Options.CallbackPath))
                 Options.CallbackPath = string.Format("/owin/security/keycloak/{0}/callback",
                     Uri.EscapeDataString(Options.AuthenticationType));
+            if (string.IsNullOrWhiteSpace(Options.SignInAsAuthenticationType))
+                Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
 
             // Validate options
 

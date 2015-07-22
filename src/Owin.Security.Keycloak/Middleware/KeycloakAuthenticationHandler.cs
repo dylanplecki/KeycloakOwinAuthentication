@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Newtonsoft.Json.Linq;
 using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Utilities;
 
@@ -41,7 +39,7 @@ namespace Owin.Security.Keycloak.Middleware
 
             if (ticket.Identity != null)
             {
-                Request.Context.Authentication.SignIn(ticket.Properties, ticket.Identity);
+                Context.Authentication.SignIn(ticket.Properties, ticket.Identity);
             }
 
             // Redirect back to the original secured resource, if any
@@ -69,6 +67,8 @@ namespace Owin.Security.Keycloak.Middleware
             if (Response.StatusCode == 401)
             {
                 var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
+                if (challenge == null) return;
+
                 await LoginRedirectAsync(challenge.Properties);
             }
         }
@@ -139,32 +139,16 @@ namespace Owin.Security.Keycloak.Middleware
             if (!response.IsSuccessStatusCode)
                 throw new Exception("Keycloak token endpoint returned an error");
 
-            // Parse response into JSON object (async)
-            var contentTask = response.Content.ReadAsStringAsync();
-            var payloadJson = await Task.Run(async () => // Run on background thread
-            {
-                // TODO: Provide sanity validation below
-                var json = JObject.Parse(await contentTask);
-                var accessToken = json["access_token"];
-                var encodedData = accessToken.ToString().Split('.')[1];
-                encodedData += new string('=', encodedData.Length%4);
-                var tokenPayload = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
-                return JObject.Parse(tokenPayload);
-            });
+            // Generate claims and create user information
+            var claims =
+                await
+                    JwtClaimGenerator.GenerateClaimsAsync(await response.Content.ReadAsStringAsync(),
+                        Options.SaveTokensAsClaims);
+            var identity = new ClaimsIdentity(claims, Options.SignInAsAuthenticationType);
+            var properties = stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
+                             new AuthenticationProperties();
 
-            // Generate claims and create identity
-            var claims = JwtClaimGenerator.GenerateClaims(payloadJson);
-            var identity = new ClaimsIdentity(claims, Options.AuthenticationType, ClaimTypes.Name, ClaimTypes.Role);
-
-            // Redirect to returnUri
-            var returnUri = stateData[StateCache.PropertyNames.ReturnUri] as Uri ??
-                            new Uri(Request.Uri.GetLeftPart(UriPartial.Authority));
-            Response.Redirect(returnUri.ToString());
-
-            // Stop processing OWIN pipeline for redirect
-            return new AuthenticationTicket(identity,
-                stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
-                new AuthenticationProperties());
+            return new AuthenticationTicket(identity, properties);
         }
 
         private async Task<AuthenticationTicket> GenerateErrorResponseAsync(HttpStatusCode statusCode,

@@ -19,6 +19,10 @@ namespace Owin.Security.Keycloak
         public string ResponseType { get; set; }
         public string PostLogoutRedirectUrl { get; set; }
 
+        public bool SaveTokensAsClaims { get; set; }
+
+        public string SignInAsAuthenticationType { get; set; }
+
         public KeycloakAuthenticationOptions()
             : base(DefaultAuthenticationType)
         {
