@@ -21,7 +21,12 @@ namespace Sample.KeycloakAuth.Controllers
 
             var userPrinciple = User as ClaimsPrincipal;
 
-            return View();
+            return View(userPrinciple);
+        }
+
+        public void Logout()
+        {
+            Request.GetOwinContext().Authentication.SignOut();
         }
 
         public ActionResult Contact()

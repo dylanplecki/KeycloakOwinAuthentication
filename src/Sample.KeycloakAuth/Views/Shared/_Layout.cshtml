@@ -19,11 +19,25 @@
                 @Html.ActionLink("Application name", "Index", "Home", new { area = "" }, new { @class = "navbar-brand" })
             </div>
             <div class="navbar-collapse collapse">
-                <ul class="nav navbar-nav">
-                    <li>@Html.ActionLink("Home", "Index", "Home")</li>
-                    <li>@Html.ActionLink("About", "About", "Home")</li>
-                    <li>@Html.ActionLink("Contact", "Contact", "Home")</li>
-                </ul>
+              <ul class="nav navbar-nav">
+                <li>@Html.ActionLink("Home", "Index", "Home")</li>
+                <li>@Html.ActionLink("About", "About", "Home")</li>
+                <li>@Html.ActionLink("Contact", "Contact", "Home")</li>
+              </ul>
+              <ul class="nav navbar-nav pull-right">
+                <li class="dropdown">
+                  <a class="dropdown-toggle " data-toggle="dropdown">
+                    <i class="icon-user "></i> @(User.Identity.IsAuthenticated ? User.Identity.Name : "Anonymous")
+                    <b class="caret"></b>
+                  </a>
+                  <ul class="dropdown-menu">
+                    @if (User.Identity.IsAuthenticated)
+                    {
+                      <li>@Html.ActionLink("Logout", "Logout", "Home")</li>
+                    }
+                  </ul>
+                </li>
+              </ul>
             </div>
         </div>
     </div>
