@@ -10,7 +10,7 @@ library, which only includes support for OIDC hybrid and implicit flows.
 
 ## Installation
 
-Coming Soon: An official NuGet package.
+The project can be installed via the official NuGet package `Owin.Security.Keycloak` by the integrated NuGet package manager or at the NuGet Gallery [project website](https://www.nuget.org/packages/Owin.Security.Keycloak/1.0.0).
 
 The source code can be found at the project's [GitHub repository](https://github.com/dylanplecki/KeycloakOwinAuthentication).
 
