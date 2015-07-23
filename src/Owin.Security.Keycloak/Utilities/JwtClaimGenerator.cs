@@ -39,7 +39,7 @@ namespace Owin.Security.Keycloak.Utilities
         private static void ProcessClaimMappings(List<Claim> claims, JToken json, string jsonId,
             List<LookupClaim> claimMappings)
         {
-            foreach (var lookupClaim in JwtClaimMappings)
+            foreach (var lookupClaim in claimMappings)
             {
                 var query = string.Format(lookupClaim.JSelectQuery, jsonId);
                 var token = json.SelectToken(query);
