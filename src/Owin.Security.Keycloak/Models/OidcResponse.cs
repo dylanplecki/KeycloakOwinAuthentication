@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Protocols;
 
 namespace Owin.Security.Keycloak.Models
 {
-    internal abstract class OidcBaseResponse
+    internal abstract class OidcResponse
     {
         public string Error { get; private set; }
         public string ErrorUri { get; private set; }
@@ -26,8 +26,8 @@ namespace Owin.Security.Keycloak.Models
         {
             if (!IsSuccessfulResponse())
             {
-                throw new Exception(string.Format("OIDC Error in AuthorizationResult [{0}]: {1} (URI: '{2}')", Error,
-                    ErrorDescription ?? "NO DESCRIPTION", ErrorUri ?? "N/A"));
+                throw new Exception(
+                    $"OIDC Error in AuthorizationResult [{Error}]: {ErrorDescription ?? "NO DESCRIPTION"} (URI: '{ErrorUri ?? "N/A"}')");
             }
         }
     }

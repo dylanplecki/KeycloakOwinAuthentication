@@ -5,7 +5,7 @@ using Microsoft.IdentityModel.Protocols;
 
 namespace Owin.Security.Keycloak.Models
 {
-    internal class AuthorizationResponse : OidcBaseResponse
+    internal class AuthorizationResponse : OidcResponse
     {
         public string Code { get; private set; }
         public string State { get; private set; }
