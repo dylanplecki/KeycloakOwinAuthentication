@@ -47,8 +47,8 @@ namespace Owin.Security.Keycloak.Utilities
 
             // Fail on unreachable destination
             if (!response.IsSuccessStatusCode)
-                throw new Exception(string.Format("RefreshMetadataAsync: Metadata address unreachable ('{0}')",
-                    _options.GetMetadataUrl()));
+                throw new Exception(
+                    $"RefreshMetadataAsync: Metadata address unreachable ('{_options.GetMetadataUrl()}')");
 
             // Try to get the JSON metadata object
             JObject json;
@@ -60,8 +60,7 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid JSON
                 throw new Exception(
-                    string.Format("RefreshMetadataAsync: Metadata address returned invalid JSON object ('{0}')",
-                        _options.GetMetadataUrl()), exception);
+                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{_options.GetMetadataUrl()}')", exception);
             }
 
             // Set internal URI properties
@@ -84,8 +83,7 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid URI or metadata
                 throw new Exception(
-                    string.Format("RefreshMetadataAsync: Metadata address returned incomplete data ('{0}')",
-                        _options.GetMetadataUrl()), exception);
+                    $"RefreshMetadataAsync: Metadata address returned incomplete data ('{_options.GetMetadataUrl()}')", exception);
             }
         }
 
@@ -119,7 +117,7 @@ namespace Owin.Security.Keycloak.Utilities
             return new FormUrlEncodedContent(parameters);
         }
 
-        public HttpContent BuildTokenEndpointContent(Uri requestUri, string code)
+        public HttpContent BuildAccessTokenEndpointContent(Uri requestUri, string code)
         {
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
@@ -127,6 +125,28 @@ namespace Owin.Security.Keycloak.Utilities
                 {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.GrantType, "authorization_code"},
                 {OpenIdConnectParameterNames.Code, code}
+            };
+
+            // Add optional parameters
+            if (!string.IsNullOrWhiteSpace(_options.ClientId))
+            {
+                parameters.Add(OpenIdConnectParameterNames.ClientId, _options.ClientId);
+
+                if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
+                    parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
+            }
+
+            return new FormUrlEncodedContent(parameters);
+        }
+
+        public HttpContent BuildRefreshTokenEndpointContent(string refreshToken)
+        {
+            // Create parameter dictionary
+            var parameters = new Dictionary<string, string>
+            {
+                {OpenIdConnectParameterNames.GrantType, "refresh_token"},
+                {OpenIdConnectParameterNames.Scope, _options.Scope},
+                {"refresh_token", refreshToken}
             };
 
             // Add optional parameters

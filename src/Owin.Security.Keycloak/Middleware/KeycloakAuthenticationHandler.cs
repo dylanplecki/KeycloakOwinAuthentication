@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IdentityModel;
+using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Models;
+using Owin.Security.Keycloak.Models.Messages;
 using Owin.Security.Keycloak.Utilities;
 
 namespace Owin.Security.Keycloak.Middleware
@@ -26,7 +28,15 @@ namespace Owin.Security.Keycloak.Middleware
                 authResult.ThrowIfError();
 
                 // Process response
-                return await MakeTokenRequestAsync(authResult.Code, authResult.State);
+                try
+                {
+                    var message = new RequestAccessTokenMessage(Request, Options, authResult);
+                    return await message.ExecuteAsync();
+                }
+                catch (BadRequestException exception)
+                {
+                    return await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, exception.Message);
+                }
             }
 
             return null;
@@ -34,6 +44,17 @@ namespace Owin.Security.Keycloak.Middleware
 
         public override async Task<bool> InvokeAsync()
         {
+            var user = Context.Authentication.User;
+
+            if (user?.Identity != null && user.Identity.IsAuthenticated)
+            {
+                var result = false;
+                if (Options.SaveTokensAsClaims && Options.AutoTokenRefresh)
+                    result = await CheckRefreshUserInfo(user);
+
+                if (result) return true;
+            }
+
             var ticket = await AuthenticateAsync();
             if (ticket == null) return false;
 
@@ -109,46 +130,43 @@ namespace Owin.Security.Keycloak.Middleware
             Response.Redirect(logoutUrl + "?" + await logoutParams.ReadAsStringAsync());
         }
 
-        private async Task<AuthenticationTicket> MakeTokenRequestAsync(string code, string state)
+        private async Task<bool> CheckRefreshUserInfo(ClaimsPrincipal user)
         {
-            // Validate passed state
-            var stateData = StateCache.ReturnState(state);
-            if (stateData == null)
-                return
-                    await
-                        GenerateErrorResponseAsync(HttpStatusCode.BadRequest,
-                            "Invalid state: Please reattempt the request");
+            var claimLookup = user.Claims.ToLookup(c => c.Type, c => c.Value);
+            var refreshToken = claimLookup[JwtClaimGenerator.TokenTypes.RefreshToken].FirstOrDefault();
+            var accessTokenExpiration =
+                claimLookup[JwtClaimGenerator.TokenTypes.AccessTokenExpiration].FirstOrDefault();
+            var refreshTokenExpiration =
+                claimLookup[JwtClaimGenerator.TokenTypes.RefreshTokenExpiration].FirstOrDefault();
 
-            // Make HTTP call to token endpoint
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
-            HttpResponseMessage response;
-            try
+            var accessExpired = DateTime.Parse(accessTokenExpiration) <= DateTime.Now;
+            var refreshExpired = DateTime.Parse(refreshTokenExpiration) <= DateTime.Now;
+
+            // Require re-login if refresh token is expired
+            if (refreshExpired)
             {
-                var client = new HttpClient();
-                response =
-                    await
-                        client.PostAsync(uriManager.TokenEndpoint,
-                            uriManager.BuildTokenEndpointContent(Request.Uri, code));
-            }
-            catch (Exception exception)
-            {
-                throw new Exception("Keycloak token endpoint is inaccessible", exception);
+                Context.Authentication.SignOut();
+                Response.StatusCode = (int) HttpStatusCode.Unauthorized;
+                return true;
             }
 
-            // Check for HTTP errors
-            if (!response.IsSuccessStatusCode)
-                throw new Exception("Keycloak token endpoint returned an error");
+            // Get new access token if expired
+            if (accessExpired)
+            {
+                await RefreshUserInfo(refreshToken);
+            }
 
-            // Generate claims and create user information
-            var claims =
-                await
-                    JwtClaimGenerator.GenerateClaimsAsync(await response.Content.ReadAsStringAsync(),
-                        Options.SaveTokensAsClaims);
-            var identity = new ClaimsIdentity(claims, Options.SignInAsAuthenticationType);
-            var properties = stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
-                             new AuthenticationProperties();
+            return false;
+        }
 
-            return new AuthenticationTicket(identity, properties);
+        private async Task RefreshUserInfo(string refreshToken)
+        {
+            var message = new RefreshAccessTokenMessage(Request, Options, refreshToken);
+            var claimsTask = message.ExecuteAsync();
+
+            Context.Authentication.SignOut(Options.SignInAsAuthenticationType);
+            var identity = new ClaimsIdentity(await claimsTask, Options.SignInAsAuthenticationType);
+            Context.Authentication.SignIn(identity);
         }
 
         private async Task<AuthenticationTicket> GenerateErrorResponseAsync(HttpStatusCode statusCode,

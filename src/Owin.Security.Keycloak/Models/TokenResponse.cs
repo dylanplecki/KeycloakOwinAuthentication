@@ -5,18 +5,13 @@ using Newtonsoft.Json.Linq;
 
 namespace Owin.Security.Keycloak.Models
 {
-    internal class TokenResponse : OidcBaseResponse
+    internal class TokenResponse : OidcResponse
     {
         public string AccessToken { get; private set; }
         public string ExpiresIn { get; private set; }
         public string IdToken { get; private set; }
         public string RefreshToken { get; private set; }
         public string TokenType { get; private set; }
-
-        public TokenResponse(string query)
-        {
-            Init(HttpUtility.ParseQueryString(query));
-        }
 
         public TokenResponse(JObject json)
         {

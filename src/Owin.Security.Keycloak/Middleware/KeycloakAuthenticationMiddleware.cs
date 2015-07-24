@@ -32,9 +32,7 @@ namespace Owin.Security.Keycloak.Middleware
             if (ReservedAuthenticationTypes.Contains(authType))
             {
                 throw new Exception(
-                    string.Format(
-                        "KeycloakAuthenticationOptions: Authentication type '{0}' already used; required unique",
-                        authType));
+                    $"KeycloakAuthenticationOptions: Authentication type '{authType}' already used; required unique");
             }
             ReservedAuthenticationTypes.Add(authType);
 
@@ -50,8 +48,8 @@ namespace Owin.Security.Keycloak.Middleware
             if (string.IsNullOrWhiteSpace(Options.Scope))
                 Options.Scope = "openid";
             if (string.IsNullOrWhiteSpace(Options.CallbackPath))
-                Options.CallbackPath = string.Format("/owin/security/keycloak/{0}/callback",
-                    Uri.EscapeDataString(Options.AuthenticationType));
+                Options.CallbackPath =
+                    $"/owin/security/keycloak/{Uri.EscapeDataString(Options.AuthenticationType)}/callback";
             if (string.IsNullOrWhiteSpace(Options.SignInAsAuthenticationType))
                 Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
 
@@ -78,15 +76,15 @@ namespace Owin.Security.Keycloak.Middleware
 
         private void ThrowOptionNotFound(string optionName)
         {
-            var message = string.Format("KeycloakAuthenticationOptions [id:{0}] : Required option '{1}' not set",
-                Options.AuthenticationType, optionName);
+            var message =
+                $"KeycloakAuthenticationOptions [id:{Options.AuthenticationType}] : Required option '{optionName}' not set";
             throw new Exception(message);
         }
 
         private void ThrowInvalidOption(string optionName)
         {
-            var message = string.Format("KeycloakAuthenticationOptions [id:{0}] : Provided option '{1}' is invalid",
-                Options.AuthenticationType, optionName);
+            var message =
+                $"KeycloakAuthenticationOptions [id:{Options.AuthenticationType}] : Provided option '{optionName}' is invalid";
             throw new Exception(message);
         }
     }
