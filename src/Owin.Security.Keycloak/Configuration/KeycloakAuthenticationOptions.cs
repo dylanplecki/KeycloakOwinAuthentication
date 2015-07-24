@@ -20,7 +20,7 @@ namespace Owin.Security.Keycloak
         public string PostLogoutRedirectUrl { get; set; }
 
         public bool AutoTokenRefresh { get; set; } = true;
-        public bool SaveTokensAsClaims { get; set; }
+        public bool SaveTokensAsClaims { get; set; } = true;
 
         public string SignInAsAuthenticationType { get; set; }
 

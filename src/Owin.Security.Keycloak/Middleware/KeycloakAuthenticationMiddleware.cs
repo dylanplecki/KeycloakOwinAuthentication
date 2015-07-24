@@ -55,6 +55,9 @@ namespace Owin.Security.Keycloak.Middleware
 
             // Validate options
 
+            if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
+                Options.SaveTokensAsClaims = true;
+
             // ReSharper disable once PossibleNullReferenceException
             if (Options.KeycloakUrl.EndsWith("/"))
                 Options.KeycloakUrl = Options.KeycloakUrl.TrimEnd('/');
