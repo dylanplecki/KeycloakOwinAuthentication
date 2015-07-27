@@ -16,7 +16,7 @@ namespace Owin.Security.Keycloak
             ValidateCookieOptions(options);
 
             app.UseCookieAuthentication(options.CookieAuthenticationOptions);
-            app.Use(typeof(KeycloakAuthenticationMiddleware), app, options);
+            app.Use(typeof (KeycloakAuthenticationMiddleware), app, options);
             app.SetDefaultSignInAsAuthenticationType(options.CookieAuthenticationOptions.AuthenticationType);
             return app;
         }
@@ -25,10 +25,9 @@ namespace Owin.Security.Keycloak
         {
             var cookieOptions = options.CookieAuthenticationOptions;
 
-            if (cookieOptions.AuthenticationType == CookieAuthenticationDefaults.AuthenticationType)
-                cookieOptions.AuthenticationType += "." + options.AuthenticationType;
+            cookieOptions.AuthenticationType += "." + options.AuthenticationType;
             if (string.IsNullOrEmpty(cookieOptions.CookieName))
-                cookieOptions.CookieName = options.AuthenticationType + ".";
+                cookieOptions.CookieName = "Store." + cookieOptions.AuthenticationType;
 
             cookieOptions.Provider = new CookieAuthenticationProvider
             {
