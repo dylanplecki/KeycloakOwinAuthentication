@@ -9,9 +9,9 @@ namespace Owin.Security.Keycloak.Models.Messages
     internal abstract class GenericMessage<T>
     {
         protected IOwinRequest Request { get; }
-        protected KeycloakAuthenticationOptions Options { get; }
+        protected IKeycloakOptions Options { get; }
 
-        public GenericMessage(IOwinRequest request, KeycloakAuthenticationOptions options)
+        protected GenericMessage(IOwinRequest request, IKeycloakOptions options)
         {
             if (request == null) throw new ArgumentNullException();
             if (options == null) throw new ArgumentNullException();

@@ -6,6 +6,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin.Security;
+using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Messages;
@@ -44,17 +45,6 @@ namespace Owin.Security.Keycloak.Middleware
 
         public override async Task<bool> InvokeAsync()
         {
-            var user = Context.Authentication.User;
-
-            if (user?.Identity != null && user.Identity.IsAuthenticated)
-            {
-                var result = false;
-                if (Options.SaveTokensAsClaims && Options.AutoTokenRefresh)
-                    result = await CheckRefreshUserInfo(user);
-
-                if (result) return true;
-            }
-
             var ticket = await AuthenticateAsync();
             if (ticket == null) return false;
 
@@ -130,43 +120,41 @@ namespace Owin.Security.Keycloak.Middleware
             Response.Redirect(logoutUrl + "?" + await logoutParams.ReadAsStringAsync());
         }
 
-        private async Task<bool> CheckRefreshUserInfo(ClaimsPrincipal user)
+        internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
         {
-            var claimLookup = user.Claims.ToLookup(c => c.Type, c => c.Value);
-            var refreshToken = claimLookup[JwtClaimGenerator.TokenTypes.RefreshToken].FirstOrDefault();
-            var accessTokenExpiration =
-                claimLookup[JwtClaimGenerator.TokenTypes.AccessTokenExpiration].FirstOrDefault();
-            var refreshTokenExpiration =
-                claimLookup[JwtClaimGenerator.TokenTypes.RefreshTokenExpiration].FirstOrDefault();
+            if (context.Identity == null || !context.Identity.IsAuthenticated) return;
 
-            var accessExpired = DateTime.Parse(accessTokenExpiration) <= DateTime.Now;
-            var refreshExpired = DateTime.Parse(refreshTokenExpiration) <= DateTime.Now;
+            var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
+            var keycloakOptions = claimLookup[Constants.ClaimTypes.KeycloakOptions].FirstOrDefault();
+            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+            var accessTokenExpiration =
+                claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
+            var refreshTokenExpiration =
+                claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
 
             // Require re-login if refresh token is expired
-            if (refreshExpired)
+            if (refreshToken == null || keycloakOptions == null || accessTokenExpiration == null ||
+                refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now)
             {
-                Context.Authentication.SignOut();
-                Response.StatusCode = (int) HttpStatusCode.Unauthorized;
-                return true;
+                context.RejectIdentity();
+                return;
             }
 
             // Get new access token if expired
-            if (accessExpired)
+            if (DateTime.Parse(accessTokenExpiration) <= DateTime.Now)
             {
-                await RefreshUserInfo(refreshToken);
+                IKeycloakOptions options;
+                if (!KeycloakOptionsExtension.TryDeserialize(keycloakOptions, out options))
+                {
+                    context.RejectIdentity();
+                    return;
+                }
+
+                var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
+                var claims = await message.ExecuteAsync();
+                var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
+                context.ReplaceIdentity(identity);
             }
-
-            return false;
-        }
-
-        private async Task RefreshUserInfo(string refreshToken)
-        {
-            var message = new RefreshAccessTokenMessage(Request, Options, refreshToken);
-            var claimsTask = message.ExecuteAsync();
-
-            Context.Authentication.SignOut(Options.SignInAsAuthenticationType);
-            var identity = new ClaimsIdentity(await claimsTask, Options.SignInAsAuthenticationType);
-            Context.Authentication.SignIn(identity);
         }
 
         private async Task<AuthenticationTicket> GenerateErrorResponseAsync(HttpStatusCode statusCode,

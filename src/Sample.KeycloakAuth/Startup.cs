@@ -1,4 +1,5 @@
 ﻿using Microsoft.Owin;
+using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Owin;
 using Owin.Security.Keycloak;
@@ -11,7 +12,6 @@ namespace Sample.KeycloakAuth
     {
         public void Configuration(IAppBuilder app)
         {
-            app.UseCookieAuthentication(new CookieAuthenticationOptions());
             app.UseKeycloakAuthentication(new KeycloakAuthenticationOptions
             {
                 Realm = "master",

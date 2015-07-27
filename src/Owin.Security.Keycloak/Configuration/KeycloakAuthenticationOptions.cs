@@ -1,9 +1,9 @@
-﻿using Microsoft.IdentityModel.Protocols;
-using Microsoft.Owin.Security;
+﻿using Microsoft.Owin.Security;
+using Microsoft.Owin.Security.Cookies;
 
 namespace Owin.Security.Keycloak
 {
-    public class KeycloakAuthenticationOptions : AuthenticationOptions
+    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakOptions
     {
         private const string DefaultAuthenticationType = "KeycloakAuthentication";
 
@@ -24,19 +24,12 @@ namespace Owin.Security.Keycloak
 
         public string SignInAsAuthenticationType { get; set; }
 
+        public CookieAuthenticationOptions CookieAuthenticationOptions { get; set; } =
+            new CookieAuthenticationOptions();
+
         public KeycloakAuthenticationOptions()
             : base(DefaultAuthenticationType)
         {
-        }
-
-        public string GetAuthority()
-        {
-            return KeycloakUrl + "/realms/" + Realm;
-        }
-
-        public string GetMetadataUrl()
-        {
-            return GetAuthority() + "/" + OpenIdProviderMetadataNames.Discovery;
         }
     }
 }

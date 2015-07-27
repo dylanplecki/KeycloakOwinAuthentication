@@ -12,7 +12,7 @@ namespace Owin.Security.Keycloak.Models.Messages
     {
         private AuthorizationResponse AuthResponse { get; }
 
-        public RequestAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
+        public RequestAccessTokenMessage(IOwinRequest request, IKeycloakOptions options,
             AuthorizationResponse authResponse)
             : base(request, options)
         {
@@ -29,7 +29,7 @@ namespace Owin.Security.Keycloak.Models.Messages
 
             // Generate claims and create user information
             var tokenResponse = await ExecuteHttpRequestAsync();
-            var claims = await JwtClaimGenerator.GenerateClaimsAsync(tokenResponse, Options.SaveTokensAsClaims);
+            var claims = await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
             var identity = new ClaimsIdentity(claims, Options.SignInAsAuthenticationType);
             var properties = stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
                              new AuthenticationProperties();

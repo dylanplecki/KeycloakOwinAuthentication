@@ -7,11 +7,11 @@ using Owin.Security.Keycloak.Utilities;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
-    internal class RefreshAccessTokenMessage : GenericMessage<List<Claim>>
+    internal class RefreshAccessTokenMessage : GenericMessage<IEnumerable<Claim>>
     {
         private string RefreshToken { get; }
 
-        public RefreshAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
+        public RefreshAccessTokenMessage(IOwinRequest request, IKeycloakOptions options,
             string refreshToken)
             : base(request, options)
         {
@@ -19,10 +19,10 @@ namespace Owin.Security.Keycloak.Models.Messages
             RefreshToken = refreshToken;
         }
 
-        public override async Task<List<Claim>> ExecuteAsync()
+        public override async Task<IEnumerable<Claim>> ExecuteAsync()
         {
             var tokenResponse = await ExecuteHttpRequestAsync(RefreshToken);
-            return await JwtClaimGenerator.GenerateClaimsAsync(tokenResponse, Options.SaveTokensAsClaims);
+            return await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
         }
 
         private async Task<string> ExecuteHttpRequestAsync(string refreshToken)
