@@ -11,7 +11,7 @@ namespace Owin.Security.Keycloak.Models.Messages
         protected IOwinRequest Request { get; }
         protected KeycloakAuthenticationOptions Options { get; }
 
-        public GenericMessage(IOwinRequest request, KeycloakAuthenticationOptions options)
+        protected GenericMessage(IOwinRequest request, KeycloakAuthenticationOptions options)
         {
             if (request == null) throw new ArgumentNullException();
             if (options == null) throw new ArgumentNullException();
@@ -23,6 +23,11 @@ namespace Owin.Security.Keycloak.Models.Messages
 
         protected async Task<HttpResponseMessage> SendHttpPostRequest(Uri uri, HttpContent content = null)
         {
+            if (content != null)
+            {
+                var test = await content.ReadAsStringAsync();
+            }
+
             HttpResponseMessage response;
             try
             {
@@ -32,6 +37,11 @@ namespace Owin.Security.Keycloak.Models.Messages
             catch (Exception exception)
             {
                 throw new Exception("HTTP client URI is inaccessible", exception);
+            }
+
+            if (response != null)
+            {
+                var test = await response.Content.ReadAsStringAsync();
             }
 
             // Check for HTTP errors

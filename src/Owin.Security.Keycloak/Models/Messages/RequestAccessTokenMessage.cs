@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Utilities.Caching;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
@@ -23,15 +24,15 @@ namespace Owin.Security.Keycloak.Models.Messages
         public override async Task<AuthenticationTicket> ExecuteAsync()
         {
             // Validate passed state
-            var stateData = StateCache.ReturnState(AuthResponse.State);
+            var stateData = Global.StateCache.ReturnState(AuthResponse.State);
             if (stateData == null)
                 throw new BadRequestException("Invalid state: Please reattempt the request");
 
             // Generate claims and create user information
             var tokenResponse = await ExecuteHttpRequestAsync();
-            var claims = await JwtClaimGenerator.GenerateClaimsAsync(tokenResponse, Options.SaveTokensAsClaims);
+            var claims = await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
             var identity = new ClaimsIdentity(claims, Options.SignInAsAuthenticationType);
-            var properties = stateData[StateCache.PropertyNames.AuthenticationProperties] as AuthenticationProperties ??
+            var properties = stateData[Constants.CacheTypes.AuthenticationProperties] as AuthenticationProperties ??
                              new AuthenticationProperties();
 
             return new AuthenticationTicket(identity, properties);

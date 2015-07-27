@@ -1,5 +1,6 @@
-﻿using Microsoft.IdentityModel.Protocols;
-using Microsoft.Owin.Security;
+﻿using Microsoft.Owin.Security;
+using Microsoft.Owin.Security.Cookies;
+using Newtonsoft.Json;
 
 namespace Owin.Security.Keycloak
 {
@@ -11,8 +12,9 @@ namespace Owin.Security.Keycloak
 
         public string Realm { get; set; }
         public string Scope { get; set; }
-
         public string ClientId { get; set; }
+
+        [JsonIgnore]
         public string ClientSecret { get; set; }
 
         public string CallbackPath { get; set; }
@@ -20,23 +22,16 @@ namespace Owin.Security.Keycloak
         public string PostLogoutRedirectUrl { get; set; }
 
         public bool AutoTokenRefresh { get; set; } = true;
-        public bool SaveTokensAsClaims { get; set; }
+        public bool SaveTokensAsClaims { get; set; } = true;
 
         public string SignInAsAuthenticationType { get; set; }
+
+        public CookieAuthenticationOptions CookieAuthenticationOptions { get; set; } =
+            new CookieAuthenticationOptions();
 
         public KeycloakAuthenticationOptions()
             : base(DefaultAuthenticationType)
         {
-        }
-
-        public string GetAuthority()
-        {
-            return KeycloakUrl + "/realms/" + Realm;
-        }
-
-        public string GetMetadataUrl()
-        {
-            return GetAuthority() + "/" + OpenIdProviderMetadataNames.Discovery;
         }
     }
 }

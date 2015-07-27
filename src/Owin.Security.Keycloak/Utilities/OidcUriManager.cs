@@ -14,17 +14,20 @@ namespace Owin.Security.Keycloak.Utilities
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private readonly KeycloakAuthenticationOptions _options;
 
+        public string Authority => _options.KeycloakUrl + "/realms/" + _options.Realm;
         public string Issuer { get; private set; }
+
         public Uri JwksUri { get; private set; }
         public Uri AuthorizationEndpoint { get; private set; }
         public Uri TokenEndpoint { get; private set; }
         public Uri UserInfoEndpoint { get; private set; }
         public Uri EndSessionEndpoint { get; private set; }
+        public Uri MetadataEndpoint => new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
 
         public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
         {
-            var cachedContext =
-                HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcUriManager;
+            OidcUriManager cachedContext;
+            TryGetCachedContext(options.AuthenticationType, out cachedContext);
 
             if (cachedContext == null)
             {
@@ -35,6 +38,12 @@ namespace Owin.Security.Keycloak.Utilities
             return cachedContext;
         }
 
+        public static bool TryGetCachedContext(string authenticationType, out OidcUriManager context)
+        {
+            context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcUriManager;
+            return context != null;
+        }
+
         private OidcUriManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
@@ -43,12 +52,12 @@ namespace Owin.Security.Keycloak.Utilities
         public async Task RefreshMetadataAsync()
         {
             var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(_options.GetMetadataUrl());
+            var response = await httpClient.GetAsync(MetadataEndpoint);
 
             // Fail on unreachable destination
             if (!response.IsSuccessStatusCode)
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address unreachable ('{_options.GetMetadataUrl()}')");
+                    $"RefreshMetadataAsync: Metadata address unreachable ('{MetadataEndpoint}')");
 
             // Try to get the JSON metadata object
             JObject json;
@@ -60,7 +69,7 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid JSON
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{_options.GetMetadataUrl()}')", exception);
+                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')", exception);
             }
 
             // Set internal URI properties
@@ -83,7 +92,7 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid URI or metadata
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned incomplete data ('{_options.GetMetadataUrl()}')", exception);
+                    $"RefreshMetadataAsync: Metadata address returned incomplete data ('{MetadataEndpoint}')", exception);
             }
         }
 

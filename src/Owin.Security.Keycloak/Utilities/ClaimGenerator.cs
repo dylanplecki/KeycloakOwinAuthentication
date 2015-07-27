@@ -9,19 +9,9 @@ using Newtonsoft.Json.Linq;
 
 namespace Owin.Security.Keycloak.Utilities
 {
-    internal static class JwtClaimGenerator
+    internal static class ClaimGenerator
     {
-        public static class TokenTypes
-        {
-            public const string IdToken = "id_token";
-            public const string AccessToken = "access_token";
-            public const string RefreshToken = "refresh_token";
-
-            public const string AccessTokenExpiration = "access_token_expiration";
-            public const string RefreshTokenExpiration = "refresh_token_expiration";
-        }
-
-        public static Task<List<Claim>> GenerateClaimsAsync(string content, bool saveTokens = false)
+        public static Task<IEnumerable<Claim>> GenerateJwtClaimsAsync(string content, KeycloakAuthenticationOptions options)
         {
             // Run code on background thread
             return Task.Run(() =>
@@ -30,20 +20,21 @@ namespace Owin.Security.Keycloak.Utilities
                 var claims = new List<Claim>();
                 var json = JObject.Parse(content);
 
-                if (saveTokens)
+                if (options.SaveTokensAsClaims)
                 {
                     ProcessClaimMappings(claims, json, json["session-state"].ToString(), JwtTokenMappings);
                 }
 
-                var accessToken = json[TokenTypes.AccessToken];
+                var accessToken = json[Constants.ClaimTypes.AccessToken];
                 var encodedData = accessToken.ToString().Split('.')[1];
                 encodedData = encodedData.PadRight(encodedData.Length + (4 - encodedData.Length%4)%4, '=');
                 var tokenPayload = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
                 var payloadJson = JObject.Parse(tokenPayload);
 
                 ProcessClaimMappings(claims, payloadJson, payloadJson["aud"].ToString(), JwtClaimMappings);
+                claims.Add(new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType));
 
-                return claims;
+                return (IEnumerable<Claim>) claims;
             });
         }
 
@@ -115,22 +106,22 @@ namespace Owin.Security.Keycloak.Utilities
         {
             new LookupClaim
             {
-                ClaimName = TokenTypes.AccessToken,
-                JSelectQuery = TokenTypes.AccessToken
+                ClaimName = Constants.ClaimTypes.AccessToken,
+                JSelectQuery = "access_token"
             },
             new LookupClaim
             {
-                ClaimName = TokenTypes.IdToken,
-                JSelectQuery = TokenTypes.IdToken
+                ClaimName = Constants.ClaimTypes.IdToken,
+                JSelectQuery = "id_token"
             },
             new LookupClaim
             {
-                ClaimName = TokenTypes.RefreshToken,
-                JSelectQuery = TokenTypes.RefreshToken
+                ClaimName = Constants.ClaimTypes.RefreshToken,
+                JSelectQuery = "refresh_token"
             },
             new LookupClaim
             {
-                ClaimName = TokenTypes.AccessTokenExpiration,
+                ClaimName = Constants.ClaimTypes.AccessTokenExpiration,
                 JSelectQuery = "expires_in",
                 Transformation = delegate(JToken token)
                 {
@@ -141,7 +132,7 @@ namespace Owin.Security.Keycloak.Utilities
             },
             new LookupClaim
             {
-                ClaimName = TokenTypes.RefreshTokenExpiration,
+                ClaimName = Constants.ClaimTypes.RefreshTokenExpiration,
                 JSelectQuery = "refresh_expires_in",
                 Transformation = delegate(JToken token)
                 {

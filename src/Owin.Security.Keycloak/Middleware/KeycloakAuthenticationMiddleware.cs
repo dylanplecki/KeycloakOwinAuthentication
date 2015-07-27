@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
@@ -8,9 +7,7 @@ namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<KeycloakAuthenticationOptions>
     {
-        private static readonly List<string> ReservedAuthenticationTypes = new List<string>();
-
-        private IAppBuilder App { get; set; }
+        private IAppBuilder App { get; }
 
         public KeycloakAuthenticationMiddleware(OwinMiddleware next, IAppBuilder app,
             KeycloakAuthenticationOptions options)
@@ -29,12 +26,11 @@ namespace Owin.Security.Keycloak.Middleware
         {
             // Check to ensure authentication type isn't already used
             var authType = Options.AuthenticationType;
-            if (ReservedAuthenticationTypes.Contains(authType))
+            if (!Global.KeycloakOptionStore.TryAdd(authType, Options))
             {
                 throw new Exception(
                     $"KeycloakAuthenticationOptions: Authentication type '{authType}' already used; required unique");
             }
-            ReservedAuthenticationTypes.Add(authType);
 
             // Verify required options
             if (Options.KeycloakUrl == null)
@@ -54,6 +50,9 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
 
             // Validate options
+
+            if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
+                Options.SaveTokensAsClaims = true;
 
             // ReSharper disable once PossibleNullReferenceException
             if (Options.KeycloakUrl.EndsWith("/"))
