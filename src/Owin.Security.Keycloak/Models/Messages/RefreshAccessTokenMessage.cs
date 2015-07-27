@@ -11,7 +11,7 @@ namespace Owin.Security.Keycloak.Models.Messages
     {
         private string RefreshToken { get; }
 
-        public RefreshAccessTokenMessage(IOwinRequest request, IKeycloakOptions options,
+        public RefreshAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
             string refreshToken)
             : base(request, options)
         {

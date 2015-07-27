@@ -11,7 +11,7 @@ namespace Owin.Security.Keycloak.Utilities
 {
     internal static class ClaimGenerator
     {
-        public static Task<IEnumerable<Claim>> GenerateJwtClaimsAsync(string content, IKeycloakOptions options)
+        public static Task<IEnumerable<Claim>> GenerateJwtClaimsAsync(string content, KeycloakAuthenticationOptions options)
         {
             // Run code on background thread
             return Task.Run(() =>
@@ -32,7 +32,7 @@ namespace Owin.Security.Keycloak.Utilities
                 var payloadJson = JObject.Parse(tokenPayload);
 
                 ProcessClaimMappings(claims, payloadJson, payloadJson["aud"].ToString(), JwtClaimMappings);
-                claims.Add(new Claim(Constants.ClaimTypes.KeycloakOptions, options.Serialize()));
+                claims.Add(new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType));
 
                 return (IEnumerable<Claim>) claims;
             });

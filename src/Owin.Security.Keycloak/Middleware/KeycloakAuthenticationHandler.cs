@@ -11,6 +11,7 @@ using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Messages;
 using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Utilities.Caching;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -96,9 +97,9 @@ namespace Owin.Security.Keycloak.Middleware
             // Create state
             var stateData = new Dictionary<string, object>
             {
-                {StateCache.PropertyNames.AuthenticationProperties, properties}
+                {Constants.CacheTypes.AuthenticationProperties, properties}
             };
-            var state = StateCache.CreateState(stateData);
+            var state = Global.StateCache.CreateState(stateData);
 
             // Generate login URI
             var uriManager = await OidcUriManager.GetCachedContext(Options);
@@ -125,7 +126,7 @@ namespace Owin.Security.Keycloak.Middleware
             if (context.Identity == null || !context.Identity.IsAuthenticated) return;
 
             var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
-            var keycloakOptions = claimLookup[Constants.ClaimTypes.KeycloakOptions].FirstOrDefault();
+            var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
             var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
             var accessTokenExpiration =
                 claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
@@ -133,7 +134,7 @@ namespace Owin.Security.Keycloak.Middleware
                 claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
 
             // Require re-login if refresh token is expired
-            if (refreshToken == null || keycloakOptions == null || accessTokenExpiration == null ||
+            if (refreshToken == null || authType == null || accessTokenExpiration == null ||
                 refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now)
             {
                 context.RejectIdentity();
@@ -143,8 +144,8 @@ namespace Owin.Security.Keycloak.Middleware
             // Get new access token if expired
             if (DateTime.Parse(accessTokenExpiration) <= DateTime.Now)
             {
-                IKeycloakOptions options;
-                if (!KeycloakOptionsExtension.TryDeserialize(keycloakOptions, out options))
+                KeycloakAuthenticationOptions options;
+                if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
                 {
                     context.RejectIdentity();
                     return;

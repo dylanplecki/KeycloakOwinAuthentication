@@ -1,9 +1,10 @@
 ﻿using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
+using Newtonsoft.Json;
 
 namespace Owin.Security.Keycloak
 {
-    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakOptions
+    public class KeycloakAuthenticationOptions : AuthenticationOptions
     {
         private const string DefaultAuthenticationType = "KeycloakAuthentication";
 
@@ -11,8 +12,9 @@ namespace Owin.Security.Keycloak
 
         public string Realm { get; set; }
         public string Scope { get; set; }
-
         public string ClientId { get; set; }
+
+        [JsonIgnore]
         public string ClientSecret { get; set; }
 
         public string CallbackPath { get; set; }

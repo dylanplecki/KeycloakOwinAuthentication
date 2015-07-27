@@ -12,19 +12,19 @@ namespace Owin.Security.Keycloak.Utilities
     internal class OidcUriManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
-        private readonly IKeycloakOptions _options;
+        private readonly KeycloakAuthenticationOptions _options;
 
+        public string Authority => _options.KeycloakUrl + "/realms/" + _options.Realm;
         public string Issuer { get; private set; }
+
         public Uri JwksUri { get; private set; }
         public Uri AuthorizationEndpoint { get; private set; }
         public Uri TokenEndpoint { get; private set; }
         public Uri UserInfoEndpoint { get; private set; }
         public Uri EndSessionEndpoint { get; private set; }
+        public Uri MetadataEndpoint => new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
 
-        public Uri Authority => new Uri(_options.KeycloakUrl + "/realms/" + _options.Realm);
-        public Uri MetadataEndpoint => new Uri(Authority, OpenIdProviderMetadataNames.Discovery);
-
-        public static async Task<OidcUriManager> GetCachedContext(IKeycloakOptions options)
+        public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
         {
             OidcUriManager cachedContext;
             TryGetCachedContext(options.AuthenticationType, out cachedContext);
@@ -44,7 +44,7 @@ namespace Owin.Security.Keycloak.Utilities
             return context != null;
         }
 
-        private OidcUriManager(IKeycloakOptions options)
+        private OidcUriManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
         }

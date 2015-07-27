@@ -1,6 +1,6 @@
 ﻿namespace Owin.Security.Keycloak
 {
-    internal class Constants
+    internal static class Constants
     {
         public static class ClaimTypes
         {
@@ -11,7 +11,13 @@
             public const string AccessTokenExpiration = "access_token_expiration";
             public const string RefreshTokenExpiration = "refresh_token_expiration";
 
-            public const string KeycloakOptions = "keycloak_auth_options";
+            public const string AuthenticationType = "keycloak_authentication_type";
+        }
+
+        public static class CacheTypes
+        {
+            public const string ReturnUri = "returnUri";
+            public const string AuthenticationProperties = "authProperties";
         }
     }
 }
