@@ -76,6 +76,26 @@ namespace Owin.Security.Keycloak.Utilities
         {
             new LookupClaim
             {
+                ClaimName = Constants.ClaimTypes.Audience,
+                JSelectQuery = "aud"
+            },
+            new LookupClaim
+            {
+                ClaimName = Constants.ClaimTypes.SubjectId,
+                JSelectQuery = "sub"
+            },
+            new LookupClaim
+            {
+                ClaimName = Constants.ClaimTypes.IssuedAt,
+                JSelectQuery = "iat",
+                Transformation = delegate(JToken token)
+                {
+                    var unixTime = (token.Value<double?>() ?? 1) - 1;
+                    return unixTime.ToDateTime().ToString(CultureInfo.InvariantCulture);
+                }
+            },
+            new LookupClaim
+            {
                 ClaimName = ClaimTypes.Name,
                 JSelectQuery = "preferred_username"
             },
