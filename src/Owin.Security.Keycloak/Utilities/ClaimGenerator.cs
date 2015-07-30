@@ -32,7 +32,10 @@ namespace Owin.Security.Keycloak.Utilities
                 var payloadJson = JObject.Parse(tokenPayload);
 
                 ProcessClaimMappings(claims, payloadJson, payloadJson["aud"].ToString(), JwtClaimMappings);
+
+                // Add generic claims
                 claims.Add(new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType));
+                claims.Add(new Claim(Constants.ClaimTypes.Version, Global.GetVersion()));
 
                 return (IEnumerable<Claim>) claims;
             });

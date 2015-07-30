@@ -11,7 +11,8 @@
             public const string AccessTokenExpiration = "access_token_expiration";
             public const string RefreshTokenExpiration = "refresh_token_expiration";
 
-            public const string AuthenticationType = "keycloak_authentication_type";
+            public const string Version = "keycloak_auth_version";
+            public const string AuthenticationType = "keycloak_auth_type";
 
             public const string Audience = "audience";
             public const string SubjectId = "subject";

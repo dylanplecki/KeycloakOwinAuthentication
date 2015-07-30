@@ -11,7 +11,6 @@ using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Messages;
 using Owin.Security.Keycloak.Utilities;
-using Owin.Security.Keycloak.Utilities.Caching;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -126,16 +125,20 @@ namespace Owin.Security.Keycloak.Middleware
             if (context.Identity == null || !context.Identity.IsAuthenticated) return;
 
             var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
+
+            var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
             var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
             var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+
             var accessTokenExpiration =
                 claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
             var refreshTokenExpiration =
                 claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
 
-            // Require re-login if refresh token is expired
-            if (refreshToken == null || authType == null || accessTokenExpiration == null ||
-                refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now)
+            // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
+            if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
+                refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now ||
+                !Global.CheckVersion(version))
             {
                 context.RejectIdentity();
                 return;
