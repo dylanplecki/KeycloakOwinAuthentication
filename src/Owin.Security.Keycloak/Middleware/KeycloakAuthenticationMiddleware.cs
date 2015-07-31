@@ -71,6 +71,9 @@ namespace Owin.Security.Keycloak.Middleware
             if (Options.PostLogoutRedirectUrl != null &&
                 !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.Absolute))
                 ThrowInvalidOption("PostLogoutRedirectUrl");
+
+            // Attempt to refresh OIDC metadata from endpoint
+
         }
 
         private void ThrowOptionNotFound(string optionName)
@@ -80,11 +83,11 @@ namespace Owin.Security.Keycloak.Middleware
             throw new Exception(message);
         }
 
-        private void ThrowInvalidOption(string optionName)
+        private void ThrowInvalidOption(string optionName, Exception inner = null)
         {
             var message =
                 $"KeycloakAuthenticationOptions [id:{Options.AuthenticationType}] : Provided option '{optionName}' is invalid";
-            throw new Exception(message);
+            throw (inner == null ? new Exception(message) : new Exception(message, inner));
         }
     }
 }

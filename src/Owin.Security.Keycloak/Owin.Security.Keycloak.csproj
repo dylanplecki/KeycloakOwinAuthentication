@@ -108,6 +108,9 @@
     <Compile Include="Utilities\OidcUriManager.cs" />
     <Compile Include="Utilities\Caching\Cache.cs" />
     <Compile Include="Utilities\Caching\StateCache.cs" />
+    <Compile Include="Utilities\Synchronization\ReaderGuard.cs" />
+    <Compile Include="Utilities\Synchronization\UpgradeableGuard.cs" />
+    <Compile Include="Utilities\Synchronization\WriterGuard.cs" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">

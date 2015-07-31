@@ -20,17 +20,17 @@ namespace Owin.Security.Keycloak.Middleware
         {
             // Check for valid callback URI
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GenerateCallbackUri(Request.Uri).ToString())
+            if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
                 var authResult = new AuthorizationResponse(Request.Uri.Query);
 
-                // Check for errors
-                authResult.ThrowIfError();
-
-                // Process response
                 try
                 {
+                    // Check for errors
+                    authResult.ThrowIfError();
+
+                    // Process response
                     var message = new RequestAccessTokenMessage(Request, Options, authResult);
                     return await message.ExecuteAsync();
                 }

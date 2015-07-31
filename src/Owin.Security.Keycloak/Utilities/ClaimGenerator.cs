@@ -11,6 +11,18 @@ namespace Owin.Security.Keycloak.Utilities
 {
     internal static class ClaimGenerator
     {
+        private class LookupClaim
+        {
+            public delegate string TransformFunc(JToken token);
+
+            public string ClaimName { get; set; }
+            public string JSelectQuery { get; set; }
+            public bool IsPluralQuery { get; set; }
+            public TransformFunc Transformation { get; set; } = token => token.ToString();
+        }
+
+        #region Claim Mappers
+
         private static IEnumerable<LookupClaim> JwtClaimMappings { get; } = new List<LookupClaim>
         {
             new LookupClaim
@@ -102,6 +114,8 @@ namespace Owin.Security.Keycloak.Utilities
             }
         };
 
+        #endregion
+
         public static Task<IEnumerable<Claim>> GenerateJwtClaimsAsync(string content,
             KeycloakAuthenticationOptions options)
         {
@@ -155,16 +169,6 @@ namespace Owin.Security.Keycloak.Utilities
                     claims.Add(new Claim(lookupClaim.ClaimName, lookupClaim.Transformation?.Invoke(token)));
                 }
             }
-        }
-
-        private class LookupClaim
-        {
-            public delegate string TransformFunc(JToken token);
-
-            public string ClaimName { get; set; }
-            public string JSelectQuery { get; set; }
-            public bool IsPluralQuery { get; set; }
-            public TransformFunc Transformation { get; set; } = token => token.ToString();
         }
     }
 }
