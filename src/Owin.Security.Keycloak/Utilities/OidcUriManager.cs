@@ -14,9 +14,13 @@ namespace Owin.Security.Keycloak.Utilities
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private readonly KeycloakAuthenticationOptions _options;
 
+        private OidcUriManager(KeycloakAuthenticationOptions options)
+        {
+            _options = options;
+        }
+
         public string Authority => _options.KeycloakUrl + "/realms/" + _options.Realm;
         public string Issuer { get; private set; }
-
         public Uri JwksUri { get; private set; }
         public Uri AuthorizationEndpoint { get; private set; }
         public Uri TokenEndpoint { get; private set; }
@@ -44,11 +48,6 @@ namespace Owin.Security.Keycloak.Utilities
             return context != null;
         }
 
-        private OidcUriManager(KeycloakAuthenticationOptions options)
-        {
-            _options = options;
-        }
-
         public async Task RefreshMetadataAsync()
         {
             var httpClient = new HttpClient();
@@ -69,7 +68,8 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid JSON
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')", exception);
+                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')",
+                    exception);
             }
 
             // Set internal URI properties
@@ -174,7 +174,7 @@ namespace Owin.Security.Keycloak.Utilities
         {
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>();
-            
+
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(idToken))
                 parameters.Add(OpenIdConnectParameterNames.IdTokenHint, idToken);

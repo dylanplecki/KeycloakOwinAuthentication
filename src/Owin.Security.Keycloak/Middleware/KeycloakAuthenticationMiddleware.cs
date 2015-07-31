@@ -7,8 +7,6 @@ namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<KeycloakAuthenticationOptions>
     {
-        private IAppBuilder App { get; }
-
         public KeycloakAuthenticationMiddleware(OwinMiddleware next, IAppBuilder app,
             KeycloakAuthenticationOptions options)
             : base(next, options)
@@ -16,6 +14,8 @@ namespace Owin.Security.Keycloak.Middleware
             App = app;
             ValidateOptions();
         }
+
+        private IAppBuilder App { get; }
 
         protected override AuthenticationHandler<KeycloakAuthenticationOptions> CreateHandler()
         {

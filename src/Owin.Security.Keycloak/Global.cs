@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Reflection;
-using System.Web.UI.WebControls;
 using Owin.Security.Keycloak.Utilities.Caching;
 
 namespace Owin.Security.Keycloak

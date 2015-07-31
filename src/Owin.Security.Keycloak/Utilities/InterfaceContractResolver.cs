@@ -8,6 +8,7 @@ namespace Owin.Security.Keycloak.Utilities
     internal class InterfaceContractResolver : DefaultContractResolver
     {
         private readonly Type _interfaceType;
+
         public InterfaceContractResolver(Type interfaceType)
         {
             _interfaceType = interfaceType;

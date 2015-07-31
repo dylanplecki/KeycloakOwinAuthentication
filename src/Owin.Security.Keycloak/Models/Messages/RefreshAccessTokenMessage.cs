@@ -9,8 +9,6 @@ namespace Owin.Security.Keycloak.Models.Messages
 {
     internal class RefreshAccessTokenMessage : GenericMessage<IEnumerable<Claim>>
     {
-        private string RefreshToken { get; }
-
         public RefreshAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
             string refreshToken)
             : base(request, options)
@@ -18,6 +16,8 @@ namespace Owin.Security.Keycloak.Models.Messages
             if (refreshToken == null) throw new ArgumentNullException();
             RefreshToken = refreshToken;
         }
+
+        private string RefreshToken { get; }
 
         public override async Task<IEnumerable<Claim>> ExecuteAsync()
         {

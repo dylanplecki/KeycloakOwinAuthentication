@@ -7,9 +7,6 @@ namespace Owin.Security.Keycloak.Models
 {
     internal class AuthorizationResponse : OidcResponse
     {
-        public string Code { get; private set; }
-        public string State { get; private set; }
-
         public AuthorizationResponse(string query)
         {
             Init(HttpUtility.ParseQueryString(query));
@@ -24,6 +21,9 @@ namespace Owin.Security.Keycloak.Models
         {
             Init(authResult);
         }
+
+        public string Code { get; private set; }
+        public string State { get; private set; }
 
         protected new void Init(NameValueCollection authResult)
         {
