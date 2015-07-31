@@ -2,13 +2,12 @@
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
+using Owin.Security.Keycloak.Utilities;
 
 namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationMiddleware : AuthenticationMiddleware<KeycloakAuthenticationOptions>
     {
-        private IAppBuilder App { get; }
-
         public KeycloakAuthenticationMiddleware(OwinMiddleware next, IAppBuilder app,
             KeycloakAuthenticationOptions options)
             : base(next, options)
@@ -16,6 +15,8 @@ namespace Owin.Security.Keycloak.Middleware
             App = app;
             ValidateOptions();
         }
+
+        private IAppBuilder App { get; }
 
         protected override AuthenticationHandler<KeycloakAuthenticationOptions> CreateHandler()
         {
@@ -71,6 +72,22 @@ namespace Owin.Security.Keycloak.Middleware
             if (Options.PostLogoutRedirectUrl != null &&
                 !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.Absolute))
                 ThrowInvalidOption("PostLogoutRedirectUrl");
+
+            // Attempt to refresh OIDC metadata from endpoint
+            var uriManagerTask = OidcUriManager.CreateCachedContext(Options, false);
+            uriManagerTask.Wait();
+            var uriManager = uriManagerTask.Result;
+
+            try
+            {
+                uriManager.RefreshMetadataAsync().Wait();
+            }
+            catch (Exception exception)
+            {
+                throw new Exception(
+                    $"Cannot refresh data from the OIDC metadat address '{uriManager.MetadataEndpoint}': Check inner",
+                    exception);
+            }
         }
 
         private void ThrowOptionNotFound(string optionName)
@@ -80,11 +97,11 @@ namespace Owin.Security.Keycloak.Middleware
             throw new Exception(message);
         }
 
-        private void ThrowInvalidOption(string optionName)
+        private void ThrowInvalidOption(string optionName, Exception inner = null)
         {
             var message =
                 $"KeycloakAuthenticationOptions [id:{Options.AuthenticationType}] : Provided option '{optionName}' is invalid";
-            throw new Exception(message);
+            throw (inner == null ? new Exception(message) : new Exception(message, inner));
         }
     }
 }

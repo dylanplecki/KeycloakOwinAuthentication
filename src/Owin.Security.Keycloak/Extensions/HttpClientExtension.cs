@@ -1,7 +1,7 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Headers;
 
-namespace Keycloak
+namespace Owin.Security.Keycloak
 {
     internal static class HttpClientExtension
     {

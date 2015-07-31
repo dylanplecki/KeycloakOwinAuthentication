@@ -8,9 +8,6 @@ namespace Owin.Security.Keycloak.Models.Messages
 {
     internal abstract class GenericMessage<T>
     {
-        protected IOwinRequest Request { get; }
-        protected KeycloakAuthenticationOptions Options { get; }
-
         protected GenericMessage(IOwinRequest request, KeycloakAuthenticationOptions options)
         {
             if (request == null) throw new ArgumentNullException();
@@ -19,6 +16,8 @@ namespace Owin.Security.Keycloak.Models.Messages
             Options = options;
         }
 
+        protected IOwinRequest Request { get; }
+        protected KeycloakAuthenticationOptions Options { get; }
         public abstract Task<T> ExecuteAsync();
 
         protected async Task<HttpResponseMessage> SendHttpPostRequest(Uri uri, HttpContent content = null)

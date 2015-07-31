@@ -1,52 +1,90 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Owin.Security.Keycloak.Utilities.Synchronization;
 
 namespace Owin.Security.Keycloak.Utilities
 {
     internal class OidcUriManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
+        private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
+
+        private class Metadata
+        {
+            public readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
+            public string Issuer;
+            public Uri JwksUri;
+            public Uri AuthorizationEndpoint;
+            public Uri TokenEndpoint;
+            public Uri UserInfoEndpoint;
+            public Uri EndSessionEndpoint;
+        }
+
+        public readonly string Authority;
+        public readonly Uri MetadataEndpoint;
+
         private readonly KeycloakAuthenticationOptions _options;
-
-        public string Authority => _options.KeycloakUrl + "/realms/" + _options.Realm;
-        public string Issuer { get; private set; }
-
-        public Uri JwksUri { get; private set; }
-        public Uri AuthorizationEndpoint { get; private set; }
-        public Uri TokenEndpoint { get; private set; }
-        public Uri UserInfoEndpoint { get; private set; }
-        public Uri EndSessionEndpoint { get; private set; }
-        public Uri MetadataEndpoint => new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
-
-        public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
-        {
-            OidcUriManager cachedContext;
-            TryGetCachedContext(options.AuthenticationType, out cachedContext);
-
-            if (cachedContext == null)
-            {
-                cachedContext = new OidcUriManager(options);
-                await cachedContext.RefreshMetadataAsync();
-            }
-
-            return cachedContext;
-        }
-
-        public static bool TryGetCachedContext(string authenticationType, out OidcUriManager context)
-        {
-            context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcUriManager;
-            return context != null;
-        }
+        private readonly Metadata _metadataLocations = new Metadata();
 
         private OidcUriManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
+
+            Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
+            MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
+        }
+
+        #region Context Caching
+
+        public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
+        {
+            OidcUriManager cachedContext;
+            var success = TryGetCachedContext(options.AuthenticationType, out cachedContext);
+            return success ? cachedContext : (await CreateCachedContext(options));
+        }
+
+        public static bool TryGetCachedContext(string authenticationType, out OidcUriManager context)
+        {
+            using (new ReaderGuard(CacheLock))
+            {
+                context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcUriManager;
+                return context != null;
+            }
+        }
+
+        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options, bool preload = true)
+        {
+            using (new WriterGuard(CacheLock))
+            {
+                var cachedContext = new OidcUriManager(options);
+                if (preload) await cachedContext.RefreshMetadataAsync();
+                HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
+                return cachedContext;
+            }
+        }
+
+        #endregion
+
+        #region Metadata Handling
+
+        public async Task<bool> TryRefreshMetadataAsync()
+        {
+            try
+            {
+                await RefreshMetadataAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public async Task RefreshMetadataAsync()
@@ -69,23 +107,31 @@ namespace Owin.Security.Keycloak.Utilities
             {
                 // Fail on invalid JSON
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')", exception);
+                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')",
+                    exception);
             }
 
             // Set internal URI properties
             try
             {
-                Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
-                JwksUri = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
-                AuthorizationEndpoint = new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
-                TokenEndpoint = new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
-                UserInfoEndpoint = new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
-                EndSessionEndpoint = new Uri(json[OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
-
-                // Check for values
-                if (AuthorizationEndpoint == null || TokenEndpoint == null || UserInfoEndpoint == null)
+                using (new WriterGuard(_metadataLocations.Lock))
                 {
-                    throw new Exception("One or more metadata endpoints are missing");
+                    _metadataLocations.Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
+                    _metadataLocations.JwksUri = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
+                    _metadataLocations.AuthorizationEndpoint =
+                        new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
+                    _metadataLocations.TokenEndpoint = new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
+                    _metadataLocations.UserInfoEndpoint =
+                        new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
+                    _metadataLocations.EndSessionEndpoint =
+                        new Uri(json[OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
+
+                    // Check for values
+                    if (_metadataLocations.AuthorizationEndpoint == null || _metadataLocations.TokenEndpoint == null ||
+                        _metadataLocations.UserInfoEndpoint == null)
+                    {
+                        throw new Exception("One or more metadata endpoints are missing");
+                    }
                 }
             }
             catch (Exception exception)
@@ -96,10 +142,64 @@ namespace Owin.Security.Keycloak.Utilities
             }
         }
 
-        public Uri GenerateCallbackUri(Uri requestUri)
+        #endregion
+
+        #region Metadata Info Getters
+
+        public Uri GetCallbackUri(Uri requestUri)
         {
             return new Uri(requestUri.GetLeftPart(UriPartial.Authority) + _options.CallbackPath);
         }
+
+        public string GetIssuer()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.Issuer;
+            }
+        }
+
+        public Uri GetJwksUri()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.JwksUri;
+            }
+        }
+
+        public Uri GetAuthorizationEndpoint()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.AuthorizationEndpoint;
+            }
+        }
+
+        public Uri GetTokenEndpoint()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.TokenEndpoint;
+            }
+        }
+
+        public Uri GetUserInfoEndpoint()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.UserInfoEndpoint;
+            }
+        }
+
+        public Uri GetEndSessionEndpoint()
+        {
+            using (new ReaderGuard(_metadataLocations.Lock))
+            {
+                return _metadataLocations.EndSessionEndpoint;
+            }
+        }
+
+        #endregion
 
         #region Endpoint Content Builders
 
@@ -108,7 +208,7 @@ namespace Owin.Security.Keycloak.Utilities
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
+                {OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
                 {OpenIdConnectParameterNames.Scope, _options.Scope},
                 {OpenIdConnectParameterNames.State, state}
@@ -131,7 +231,7 @@ namespace Owin.Security.Keycloak.Utilities
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, GenerateCallbackUri(requestUri).ToString()},
+                {OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(requestUri).ToString()},
                 {OpenIdConnectParameterNames.GrantType, "authorization_code"},
                 {OpenIdConnectParameterNames.Code, code}
             };
@@ -174,7 +274,7 @@ namespace Owin.Security.Keycloak.Utilities
         {
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>();
-            
+
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(idToken))
                 parameters.Add(OpenIdConnectParameterNames.IdTokenHint, idToken);

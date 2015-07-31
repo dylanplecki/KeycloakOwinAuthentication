@@ -5,14 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Owin.Security.Keycloak.Utilities;
-using Owin.Security.Keycloak.Utilities.Caching;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
     internal class RequestAccessTokenMessage : GenericMessage<AuthenticationTicket>
     {
-        private AuthorizationResponse AuthResponse { get; }
-
         public RequestAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
             AuthorizationResponse authResponse)
             : base(request, options)
@@ -20,6 +17,8 @@ namespace Owin.Security.Keycloak.Models.Messages
             if (authResponse == null) throw new ArgumentNullException();
             AuthResponse = authResponse;
         }
+
+        private AuthorizationResponse AuthResponse { get; }
 
         public override async Task<AuthenticationTicket> ExecuteAsync()
         {
@@ -41,7 +40,7 @@ namespace Owin.Security.Keycloak.Models.Messages
         private async Task<string> ExecuteHttpRequestAsync()
         {
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            var response = await SendHttpPostRequest(uriManager.TokenEndpoint,
+            var response = await SendHttpPostRequest(uriManager.GetTokenEndpoint(),
                 uriManager.BuildAccessTokenEndpointContent(Request.Uri, AuthResponse.Code));
             return await response.Content.ReadAsStringAsync();
         }

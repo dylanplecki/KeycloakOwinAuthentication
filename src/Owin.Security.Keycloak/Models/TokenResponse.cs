@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json.Linq;
 
@@ -7,12 +6,6 @@ namespace Owin.Security.Keycloak.Models
 {
     internal class TokenResponse : OidcResponse
     {
-        public string AccessToken { get; private set; }
-        public string ExpiresIn { get; private set; }
-        public string IdToken { get; private set; }
-        public string RefreshToken { get; private set; }
-        public string TokenType { get; private set; }
-
         public TokenResponse(JObject json)
         {
             var authResult = new NameValueCollection();
@@ -30,6 +23,12 @@ namespace Owin.Security.Keycloak.Models
         {
             Init(authResult);
         }
+
+        public string AccessToken { get; private set; }
+        public string ExpiresIn { get; private set; }
+        public string IdToken { get; private set; }
+        public string RefreshToken { get; private set; }
+        public string TokenType { get; private set; }
 
         protected new void Init(NameValueCollection authResult)
         {
