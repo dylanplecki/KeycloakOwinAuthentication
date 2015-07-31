@@ -50,23 +50,23 @@ namespace Owin.Security.Keycloak.Utilities
             return success ? cachedContext : (await CreateCachedContext(options));
         }
 
-        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options)
-        {
-            using (new WriterGuard(CacheLock))
-            {
-                var cachedContext = new OidcUriManager(options);
-                await cachedContext.RefreshMetadataAsync();
-                HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
-                return cachedContext;
-            }
-        }
-
         public static bool TryGetCachedContext(string authenticationType, out OidcUriManager context)
         {
             using (new ReaderGuard(CacheLock))
             {
                 context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcUriManager;
                 return context != null;
+            }
+        }
+
+        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options, bool preload = true)
+        {
+            using (new WriterGuard(CacheLock))
+            {
+                var cachedContext = new OidcUriManager(options);
+                if (preload) await cachedContext.RefreshMetadataAsync();
+                HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
+                return cachedContext;
             }
         }
 

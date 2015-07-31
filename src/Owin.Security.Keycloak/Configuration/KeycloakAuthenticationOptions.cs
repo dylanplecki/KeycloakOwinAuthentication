@@ -1,6 +1,5 @@
 ﻿using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
-using Newtonsoft.Json;
 
 namespace Owin.Security.Keycloak
 {
@@ -17,8 +16,6 @@ namespace Owin.Security.Keycloak
         public string Realm { get; set; }
         public string Scope { get; set; }
         public string ClientId { get; set; }
-
-        [JsonIgnore]
         public string ClientSecret { get; set; }
 
         public string CallbackPath { get; set; }

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IdentityModel;
 using System.Linq;
 using System.Net;
+using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
@@ -36,7 +38,8 @@ namespace Owin.Security.Keycloak.Middleware
                 }
                 catch (BadRequestException exception)
                 {
-                    return await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, exception.Message);
+                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, exception.Message);
+                    return null;
                 }
             }
 
@@ -102,7 +105,8 @@ namespace Owin.Security.Keycloak.Middleware
 
             // Generate login URI
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            var loginUrl = uriManager.AuthorizationEndpoint;
+            var loginUrl = uriManager.GetAuthorizationEndpoint();
+
             var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
 
             // Redirect response to login
@@ -113,7 +117,7 @@ namespace Owin.Security.Keycloak.Middleware
         {
             // Generate logout URI
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            var logoutUrl = uriManager.EndSessionEndpoint;
+            var logoutUrl = uriManager.GetEndSessionEndpoint();
             var logoutParams = uriManager.BuildEndSessionEndpointContent(null, properties.RedirectUri);
 
             // Redirect response to logout
@@ -122,55 +126,70 @@ namespace Owin.Security.Keycloak.Middleware
 
         internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
         {
+            if (context == null) throw new ArgumentNullException();
             if (context.Identity == null || !context.Identity.IsAuthenticated) return;
 
-            var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
-
-            var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
-            var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
-            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
-
-            var accessTokenExpiration =
-                claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
-            var refreshTokenExpiration =
-                claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
-
-            // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
-            if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now ||
-                !Global.CheckVersion(version))
+            try
             {
-                context.RejectIdentity();
-                return;
-            }
+                var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
 
-            // Get new access token if expired
-            if (DateTime.Parse(accessTokenExpiration) <= DateTime.Now)
-            {
-                KeycloakAuthenticationOptions options;
-                if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
+                var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
+                var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
+                var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+
+                var accessTokenExpiration =
+                    claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
+                var refreshTokenExpiration =
+                    claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
+
+                // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
+                if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
+                    refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now ||
+                    !Global.CheckVersion(version))
                 {
-                    context.RejectIdentity();
-                    return;
+                    throw new AuthenticationException();
                 }
 
-                var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
-                var claims = await message.ExecuteAsync();
-                var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
-                context.ReplaceIdentity(identity);
+                // Get new access token if expired
+                if (DateTime.Parse(accessTokenExpiration) <= DateTime.Now)
+                {
+                    KeycloakAuthenticationOptions options;
+                    if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
+                    {
+                        throw new AuthenticationException();
+                    }
+
+                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
+                    var claims = await message.ExecuteAsync();
+                    var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
+                    context.ReplaceIdentity(identity);
+                }
+            }
+            catch (AuthenticationException)
+            {
+                context.RejectIdentity();
+            }
+            catch (Exception)
+            {
+                context.RejectIdentity();
+                throw;
             }
         }
 
-        private async Task<AuthenticationTicket> GenerateErrorResponseAsync(HttpStatusCode statusCode,
+        private async Task GenerateErrorResponseAsync(HttpStatusCode statusCode,
+            string errorMessage)
+        {
+            await GenerateErrorResponseAsync(Response, statusCode, errorMessage);
+        }
+
+        private static async Task GenerateErrorResponseAsync(IOwinResponse response, HttpStatusCode statusCode,
             string errorMessage)
         {
             // Generate error response
-            var task = Response.WriteAsync(errorMessage);
-            Response.StatusCode = (int) statusCode;
-            Response.ContentType = "text/plain";
-
+            var task = response.WriteAsync(errorMessage);
+            response.StatusCode = (int) statusCode;
+            response.ContentType = "text/plain";
             await task;
-            return null;
         }
 
         #endregion

@@ -2,6 +2,7 @@
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
+using Owin.Security.Keycloak.Utilities;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -73,7 +74,20 @@ namespace Owin.Security.Keycloak.Middleware
                 ThrowInvalidOption("PostLogoutRedirectUrl");
 
             // Attempt to refresh OIDC metadata from endpoint
+            var uriManagerTask = OidcUriManager.CreateCachedContext(Options, false);
+            uriManagerTask.Wait();
+            var uriManager = uriManagerTask.Result;
 
+            try
+            {
+                uriManager.RefreshMetadataAsync().Wait();
+            }
+            catch (Exception exception)
+            {
+                throw new Exception(
+                    $"Cannot refresh data from the OIDC metadat address '{uriManager.MetadataEndpoint}': Check inner",
+                    exception);
+            }
         }
 
         private void ThrowOptionNotFound(string optionName)

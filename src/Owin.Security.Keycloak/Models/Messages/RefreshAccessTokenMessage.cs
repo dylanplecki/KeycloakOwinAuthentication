@@ -30,7 +30,7 @@ namespace Owin.Security.Keycloak.Models.Messages
             var uriManager = await OidcUriManager.GetCachedContext(Options);
             var response =
                 await
-                    SendHttpPostRequest(uriManager.TokenEndpoint,
+                    SendHttpPostRequest(uriManager.GetTokenEndpoint(),
                         uriManager.BuildRefreshTokenEndpointContent(refreshToken));
             return await response.Content.ReadAsStringAsync();
         }
