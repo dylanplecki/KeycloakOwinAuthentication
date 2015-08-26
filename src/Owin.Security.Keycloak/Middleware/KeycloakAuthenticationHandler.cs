@@ -172,7 +172,7 @@ namespace Owin.Security.Keycloak.Middleware
             catch (Exception)
             {
                 context.RejectIdentity();
-                throw;
+                // TODO: Some kind of exception logging
             }
         }
 
