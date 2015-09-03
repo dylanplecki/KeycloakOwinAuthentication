@@ -117,7 +117,7 @@ namespace Owin.Security.Keycloak.Middleware
         {
             // Generate logout URI and data
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            var logoutParams = uriManager.BuildEndSessionEndpointContent(null, properties.RedirectUri);
+            var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
             // Redirect response to logout
