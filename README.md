@@ -60,12 +60,12 @@ All configuration is done via the `KeycloakAuthenticationOptions` object passed 
 ///   - By default, keycloak is deployed to the /auth submodule
 ///     on the webserver, which must be included in this URL
 /// </remarks>
-public string KeycloakUrl { get; set; }
+public string KeycloakUrl;
 
 /// <summary>
 /// The Keycloak realm on which the client is located
 /// </summary>
-public string Realm { get; set; }
+public string Realm;
 
 /// <summary>
 /// OPTIONAL: The OpenID scopes to request when authenticating a user
@@ -74,12 +74,12 @@ public string Realm { get; set; }
 ///   - All scopes should be space-delimited in a single string
 ///   - Default: "openid"
 /// </remarks>
-public string Scope { get; set; }
+public string Scope;
 
 /// <summary>
 /// The client ID to use for the application
 /// </summary>
-public string ClientId { get; set; }
+public string ClientId;
 
 /// <summary>
 /// OPTIONAL: The client secret to use for the application
@@ -88,7 +88,7 @@ public string ClientId { get; set; }
 ///   - Not required for public clients
 ///   - Default: None
 /// </remarks>
-public string ClientSecret { get; set; }
+public string ClientSecret;
 
 /// <summary>
 /// OPTIONAL: The absolute URL for users to be redirected to after logout
@@ -96,7 +96,7 @@ public string ClientSecret { get; set; }
 /// <remarks>
 ///   - Default: Base URL
 /// </remarks>
-public string PostLogoutRedirectUrl { get; set; }
+public string PostLogoutRedirectUrl;
 
 /// <summary>
 /// OPTIONAL: Automatically refresh user tokens upon expiration
@@ -104,7 +104,7 @@ public string PostLogoutRedirectUrl { get; set; }
 /// <remarks>
 ///   - Default: True
 /// </remarks>
-public bool AutoTokenRefresh { get; set; }
+public bool AutoTokenRefresh;
 
 /// <summary>
 /// OPTIONAL: Save access and ID tokens as user claims
@@ -113,7 +113,7 @@ public bool AutoTokenRefresh { get; set; }
 ///   - Forced enabled when using 'AutoTokenRefresh'
 ///   - Default: True
 /// </remarks>
-public bool SaveTokensAsClaims { get; set; }
+public bool SaveTokensAsClaims;
 ```
 
 Note: If using more than one Keycloak authentication module, you must define unique `AuthenticationType` attributes for each `KeycloakAuthenticationOptions` object.
