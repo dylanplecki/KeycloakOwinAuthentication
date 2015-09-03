@@ -41,13 +41,82 @@ namespace Sample.KeycloakAuth
                 Realm = "master",
                 ClientId = "sample_keycloakAuth",
                 ClientSecret = "3a06aae9-53d2-43a9-ba00-f188ff7b6d99",
-                KeycloakUrl = "http://keycloak.site.com/auth",
-                PostLogoutRedirectUrl = "http://keycloaksampleapp.site.com/login"
+                KeycloakUrl = "http://keycloak.site.com/auth"
             });
         }
     }
 }
 ```
+
+## Configuration
+
+All configuration is done via the `KeycloakAuthenticationOptions` object passed on OWIN startup. The available options are detailed below:
+
+```c#
+/// <summary>
+/// Defines the entire URL to the Keycloak instance
+/// </summary>
+/// <remarks>
+///   - By default, keycloak is deployed to the /auth submodule
+///     on the webserver, which must be included in this URL
+/// </remarks>
+public string KeycloakUrl { get; set; }
+
+/// <summary>
+/// The Keycloak realm on which the client is located
+/// </summary>
+public string Realm { get; set; }
+
+/// <summary>
+/// OPTIONAL: The OpenID scopes to request when authenticating a user
+/// </summary>
+/// <remarks>
+///   - All scopes should be space-delimited in a single string
+///   - Default: "openid"
+/// </remarks>
+public string Scope { get; set; }
+
+/// <summary>
+/// The client ID to use for the application
+/// </summary>
+public string ClientId { get; set; }
+
+/// <summary>
+/// OPTIONAL: The client secret to use for the application
+/// </summary>
+/// <remarks>
+///   - Not required for public clients
+///   - Default: None
+/// </remarks>
+public string ClientSecret { get; set; }
+
+/// <summary>
+/// OPTIONAL: The absolute URL for users to be redirected to after logout
+/// </summary>
+/// <remarks>
+///   - Default: Base URL
+/// </remarks>
+public string PostLogoutRedirectUrl { get; set; }
+
+/// <summary>
+/// OPTIONAL: Automatically refresh user tokens upon expiration
+/// </summary>
+/// <remarks>
+///   - Default: True
+/// </remarks>
+public bool AutoTokenRefresh { get; set; }
+
+/// <summary>
+/// OPTIONAL: Save access and ID tokens as user claims
+/// </summary>
+/// <remarks>
+///   - Forced enabled when using 'AutoTokenRefresh'
+///   - Default: True
+/// </remarks>
+public bool SaveTokensAsClaims { get; set; }
+```
+
+Note: If using more than one Keycloak authentication module, you must define unique `AuthenticationType` attributes for each `KeycloakAuthenticationOptions` object.
 
 ## Issues & Requests
 
