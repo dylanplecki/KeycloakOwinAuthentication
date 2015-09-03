@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
-using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Internal;
+using Owin.Security.Keycloak.Internal.ClaimMapping;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {

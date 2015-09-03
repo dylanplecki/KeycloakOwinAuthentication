@@ -2,7 +2,7 @@
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Internal;
 
 namespace Owin.Security.Keycloak.Middleware
 {

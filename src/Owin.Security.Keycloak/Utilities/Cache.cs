@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Web;
 
-namespace Owin.Security.Keycloak.Utilities.Caching
+namespace Owin.Security.Keycloak.Utilities
 {
     internal abstract class Cache
     {

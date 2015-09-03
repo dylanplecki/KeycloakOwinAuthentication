@@ -22,11 +22,6 @@ namespace Owin.Security.Keycloak.Models.Messages
 
         protected async Task<HttpResponseMessage> SendHttpPostRequest(Uri uri, HttpContent content = null)
         {
-            if (content != null)
-            {
-                var test = await content.ReadAsStringAsync();
-            }
-
             HttpResponseMessage response;
             try
             {
@@ -36,11 +31,6 @@ namespace Owin.Security.Keycloak.Models.Messages
             catch (Exception exception)
             {
                 throw new Exception("HTTP client URI is inaccessible", exception);
-            }
-
-            if (response != null)
-            {
-                var test = await response.Content.ReadAsStringAsync();
             }
 
             // Check for HTTP errors

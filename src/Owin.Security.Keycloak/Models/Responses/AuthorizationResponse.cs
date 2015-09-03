@@ -3,7 +3,7 @@ using System.Collections.Specialized;
 using System.Web;
 using Microsoft.IdentityModel.Protocols;
 
-namespace Owin.Security.Keycloak.Models
+namespace Owin.Security.Keycloak.Models.Responses
 {
     internal class AuthorizationResponse : OidcResponse
     {
