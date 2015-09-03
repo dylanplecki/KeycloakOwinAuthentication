@@ -270,7 +270,8 @@ namespace Owin.Security.Keycloak.Internal
             return new FormUrlEncodedContent(parameters);
         }
 
-        public HttpContent BuildEndSessionEndpointContent(string idToken = null, string postLogoutRedirectUrl = null)
+        public HttpContent BuildEndSessionEndpointContent(Uri requestUri, string idToken = null,
+            string postLogoutRedirectUrl = null)
         {
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>();
@@ -288,6 +289,11 @@ namespace Owin.Security.Keycloak.Internal
             else if (!string.IsNullOrWhiteSpace(_options.PostLogoutRedirectUrl))
             {
                 parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, _options.PostLogoutRedirectUrl);
+            }
+            else
+            {
+                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri,
+                    requestUri.GetLeftPart(UriPartial.Authority));
             }
 
             return new FormUrlEncodedContent(parameters);

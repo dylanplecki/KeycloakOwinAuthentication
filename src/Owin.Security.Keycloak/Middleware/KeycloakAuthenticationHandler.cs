@@ -110,7 +110,7 @@ namespace Owin.Security.Keycloak.Middleware
 
             // Redirect response to login
             var loginQueryString = await loginParams.ReadAsStringAsync();
-            Response.Redirect(loginUrl + "?" + (!string.IsNullOrEmpty(loginQueryString) ? "?" + loginQueryString : ""));
+            Response.Redirect(loginUrl + (!string.IsNullOrEmpty(loginQueryString) ? "?" + loginQueryString : ""));
         }
 
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
