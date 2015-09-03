@@ -9,29 +9,16 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Owin.Security.Keycloak.Utilities.Synchronization;
 
-namespace Owin.Security.Keycloak.Utilities
+namespace Owin.Security.Keycloak.Internal
 {
     internal class OidcUriManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
-
-        private class Metadata
-        {
-            public readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
-            public string Issuer;
-            public Uri JwksUri;
-            public Uri AuthorizationEndpoint;
-            public Uri TokenEndpoint;
-            public Uri UserInfoEndpoint;
-            public Uri EndSessionEndpoint;
-        }
-
+        private readonly Metadata _metadataLocations = new Metadata();
+        private readonly KeycloakAuthenticationOptions _options;
         public readonly string Authority;
         public readonly Uri MetadataEndpoint;
-
-        private readonly KeycloakAuthenticationOptions _options;
-        private readonly Metadata _metadataLocations = new Metadata();
 
         private OidcUriManager(KeycloakAuthenticationOptions options)
         {
@@ -39,6 +26,17 @@ namespace Owin.Security.Keycloak.Utilities
 
             Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
             MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
+        }
+
+        private class Metadata
+        {
+            public readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
+            public Uri AuthorizationEndpoint;
+            public Uri EndSessionEndpoint;
+            public string Issuer;
+            public Uri JwksUri;
+            public Uri TokenEndpoint;
+            public Uri UserInfoEndpoint;
         }
 
         #region Context Caching
@@ -59,7 +57,8 @@ namespace Owin.Security.Keycloak.Utilities
             }
         }
 
-        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options, bool preload = true)
+        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options,
+            bool preload = true)
         {
             using (new WriterGuard(CacheLock))
             {
@@ -120,7 +119,8 @@ namespace Owin.Security.Keycloak.Utilities
                     _metadataLocations.JwksUri = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
                     _metadataLocations.AuthorizationEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
-                    _metadataLocations.TokenEndpoint = new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
+                    _metadataLocations.TokenEndpoint =
+                        new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
                     _metadataLocations.UserInfoEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
                     _metadataLocations.EndSessionEndpoint =

@@ -14,15 +14,15 @@ namespace Owin.Security.Keycloak.Utilities.Synchronization
             _readerWriterLock.EnterUpgradeableReadLock();
         }
 
-        public IDisposable UpgradeToWriterLock()
-        {
-            return _upgradedLock ?? (_upgradedLock = new UpgradedGuard(this));
-        }
-
         public void Dispose()
         {
             _upgradedLock?.Dispose();
             _readerWriterLock.ExitUpgradeableReadLock();
+        }
+
+        public IDisposable UpgradeToWriterLock()
+        {
+            return _upgradedLock ?? (_upgradedLock = new UpgradedGuard(this));
         }
 
         private class UpgradedGuard : IDisposable

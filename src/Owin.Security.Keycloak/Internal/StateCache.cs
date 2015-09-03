@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using Owin.Security.Keycloak.Utilities;
 
-namespace Owin.Security.Keycloak.Utilities.Caching
+namespace Owin.Security.Keycloak.Internal
 {
     internal class StateCache : Cache
     {

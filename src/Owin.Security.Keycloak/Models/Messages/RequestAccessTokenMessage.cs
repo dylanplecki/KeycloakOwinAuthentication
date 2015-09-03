@@ -4,7 +4,9 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
-using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Internal;
+using Owin.Security.Keycloak.Internal.ClaimMapping;
+using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {

@@ -17,7 +17,6 @@ namespace Owin.Security.Keycloak
         public string Scope { get; set; }
         public string ClientId { get; set; }
         public string ClientSecret { get; set; }
-
         public string CallbackPath { get; set; }
         public string ResponseType { get; set; }
         public string PostLogoutRedirectUrl { get; set; }

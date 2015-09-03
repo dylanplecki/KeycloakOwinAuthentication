@@ -10,9 +10,9 @@ using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Models;
+using Owin.Security.Keycloak.Internal;
 using Owin.Security.Keycloak.Models.Messages;
-using Owin.Security.Keycloak.Utilities;
+using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -103,25 +103,26 @@ namespace Owin.Security.Keycloak.Middleware
             };
             var state = Global.StateCache.CreateState(stateData);
 
-            // Generate login URI
+            // Generate login URI and data
             var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
-            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
-
             // Redirect response to login
-            Response.Redirect(loginUrl + "?" + await loginParams.ReadAsStringAsync());
+            var loginQueryString = await loginParams.ReadAsStringAsync();
+            Response.Redirect(loginUrl + "?" + (!string.IsNullOrEmpty(loginQueryString) ? "?" + loginQueryString : ""));
         }
 
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
-            // Generate logout URI
+            // Generate logout URI and data
             var uriManager = await OidcUriManager.GetCachedContext(Options);
-            var logoutUrl = uriManager.GetEndSessionEndpoint();
             var logoutParams = uriManager.BuildEndSessionEndpointContent(null, properties.RedirectUri);
+            var logoutUrl = uriManager.GetEndSessionEndpoint();
 
             // Redirect response to logout
-            Response.Redirect(logoutUrl + "?" + await logoutParams.ReadAsStringAsync());
+            var logoutQueryString = await logoutParams.ReadAsStringAsync();
+            Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
         }
 
         internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
