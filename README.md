@@ -1,12 +1,11 @@
 # Keycloak OWIN Authentication
-###### Owin.Security.Keycloak - OWIN Authentication Middleware for ASP.NET Web Applications
--------------------------------------------------------------------------------------------
+###### Owin.Security.Keycloak - OWIN Authentication Middleware for C# Applications
+----------------------------------------------------------------------------------
 
-This project is an OWIN middleware designed for connecting ASP.NET web applications to remote
-authentication servers via the [OpenID Connect](http://openid.net/) protocol (based on [OAuth 2.0](http://oauth.net/2/)).
-It's initial design came from the shortcomings of Microsoft's
-[OpenIdConnectAuthentication](https://msdn.microsoft.com/en-us/library/owin.openidconnectauthenticationextensions.aspx)
-library, which only includes support for OIDC hybrid and implicit flows.
+From [Keycloak's Website](http://keycloak.jboss.org/):
+> Keycloak is an integrated SSO and IDM for browser apps and RESTful web services, built on top of OAuth 2.0, OpenID Connect, JSON Web Tokens (JWT) and SAML 2.0 specifications. Keycloak has tight integration with a variety of platforms and has an HTTP security proxy service where we don't have tight integration.
+
+This project is an unofficial Keycloak connector for C#. It is designed as an OWIN authentication middleware component, and can import user data, including roles and authorization information, into the OWIN pipeline for use in ASP.NET, WPF, and any other C# application.
 
 ## Installation
 
@@ -16,14 +15,6 @@ Required package(s) for hosting on ASP.NET / IIS:
 - `Microsoft.Owin.Host.SystemWeb`
 
 The source code can be found at the project's [GitHub repository](https://github.com/dylanplecki/KeycloakOwinAuthentication).
-
-## Limitations
-
-This project is still under its initial development phase, so many planned features may not yet be implemented.
-
-- It currently only supports OIDC Authorization Code flow.
-- It does not support token validation via signing certificates.
-- It is not a full implementation of the OpenID Connect Core 1.0 specification.
 
 ## Usage
 
@@ -50,12 +41,82 @@ namespace Sample.KeycloakAuth
                 Realm = "master",
                 ClientId = "sample_keycloakAuth",
                 ClientSecret = "3a06aae9-53d2-43a9-ba00-f188ff7b6d99",
-                KeycloakUrl = "http://keycloak.site.com/auth",
+                KeycloakUrl = "http://keycloak.site.com/auth"
             });
         }
     }
 }
 ```
+
+## Configuration
+
+All configuration is done via the `KeycloakAuthenticationOptions` object passed on OWIN startup. The available options are detailed below:
+
+```c#
+/// <summary>
+/// Defines the entire URL to the Keycloak instance
+/// </summary>
+/// <remarks>
+///   - By default, keycloak is deployed to the /auth submodule
+///     on the webserver, which must be included in this URL
+/// </remarks>
+public string KeycloakUrl { get; set; }
+
+/// <summary>
+/// The Keycloak realm on which the client is located
+/// </summary>
+public string Realm { get; set; }
+
+/// <summary>
+/// OPTIONAL: The OpenID scopes to request when authenticating a user
+/// </summary>
+/// <remarks>
+///   - All scopes should be space-delimited in a single string
+///   - Default: "openid"
+/// </remarks>
+public string Scope { get; set; }
+
+/// <summary>
+/// The client ID to use for the application
+/// </summary>
+public string ClientId { get; set; }
+
+/// <summary>
+/// OPTIONAL: The client secret to use for the application
+/// </summary>
+/// <remarks>
+///   - Not required for public clients
+///   - Default: None
+/// </remarks>
+public string ClientSecret { get; set; }
+
+/// <summary>
+/// OPTIONAL: The absolute URL for users to be redirected to after logout
+/// </summary>
+/// <remarks>
+///   - Default: Base URL
+/// </remarks>
+public string PostLogoutRedirectUrl { get; set; }
+
+/// <summary>
+/// OPTIONAL: Automatically refresh user tokens upon expiration
+/// </summary>
+/// <remarks>
+///   - Default: True
+/// </remarks>
+public bool AutoTokenRefresh { get; set; }
+
+/// <summary>
+/// OPTIONAL: Save access and ID tokens as user claims
+/// </summary>
+/// <remarks>
+///   - Forced enabled when using 'AutoTokenRefresh'
+///   - Default: True
+/// </remarks>
+public bool SaveTokensAsClaims { get; set; }
+```
+
+Note: If using more than one Keycloak authentication module, you must define unique `AuthenticationType` attributes for each `KeycloakAuthenticationOptions` object.
 
 ## Issues & Requests
 
