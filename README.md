@@ -1,12 +1,11 @@
 # Keycloak OWIN Authentication
-###### Owin.Security.Keycloak - OWIN Authentication Middleware for ASP.NET Web Applications
--------------------------------------------------------------------------------------------
+###### Owin.Security.Keycloak - OWIN Authentication Middleware for C# Applications
+----------------------------------------------------------------------------------
 
-This project is an OWIN middleware designed for connecting ASP.NET web applications to remote
-authentication servers via the [OpenID Connect](http://openid.net/) protocol (based on [OAuth 2.0](http://oauth.net/2/)).
-It's initial design came from the shortcomings of Microsoft's
-[OpenIdConnectAuthentication](https://msdn.microsoft.com/en-us/library/owin.openidconnectauthenticationextensions.aspx)
-library, which only includes support for OIDC hybrid and implicit flows.
+From [Keycloak's Website](http://keycloak.jboss.org/):
+> Keycloak is an integrated SSO and IDM for browser apps and RESTful web services, built on top of OAuth 2.0, OpenID Connect, JSON Web Tokens (JWT) and SAML 2.0 specifications. Keycloak has tight integration with a variety of platforms and has an HTTP security proxy service where we don't have tight integration.
+
+This project is an unofficial Keycloak connector for C#. It is designed as an OWIN authentication middleware component, and can import user data, including roles and authorization information, into the OWIN pipeline for use in ASP.NET, WPF, and any other C# application.
 
 ## Installation
 
@@ -16,14 +15,6 @@ Required package(s) for hosting on ASP.NET / IIS:
 - `Microsoft.Owin.Host.SystemWeb`
 
 The source code can be found at the project's [GitHub repository](https://github.com/dylanplecki/KeycloakOwinAuthentication).
-
-## Limitations
-
-This project is still under its initial development phase, so many planned features may not yet be implemented.
-
-- It currently only supports OIDC Authorization Code flow.
-- It does not support token validation via signing certificates.
-- It is not a full implementation of the OpenID Connect Core 1.0 specification.
 
 ## Usage
 
@@ -51,6 +42,7 @@ namespace Sample.KeycloakAuth
                 ClientId = "sample_keycloakAuth",
                 ClientSecret = "3a06aae9-53d2-43a9-ba00-f188ff7b6d99",
                 KeycloakUrl = "http://keycloak.site.com/auth",
+                PostLogoutRedirectUrl = "http://keycloaksampleapp.site.com/login"
             });
         }
     }
