@@ -1,7 +1,7 @@
 version: '1.0.3.{build}'
 configuration: Release
 platform: Any CPU
-os: Windows Server 2012
+os: Visual Studio 2015
 
 branches:
   except:
@@ -10,10 +10,12 @@ branches:
 skip_tags: true
 pull_requests:
   do_not_increment_build_number: true
-
 nuget:
   disable_publish_on_pr: true
-  
+
+before_build:
+  - nuget restore src\KeycloakOwinAuthentication.sln
+
 build:
   project: src\KeycloakOwinAuthentication.sln
   publish_nuget: true
