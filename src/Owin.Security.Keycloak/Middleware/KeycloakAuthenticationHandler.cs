@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IdentityModel;
 using System.Linq;
 using System.Net;
@@ -145,14 +146,14 @@ namespace Owin.Security.Keycloak.Middleware
 
                 // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
                 if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration) <= DateTime.Now ||
+                    refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now ||
                     !Global.CheckVersion(version))
                 {
                     throw new AuthenticationException();
                 }
 
                 // Get new access token if expired
-                if (DateTime.Parse(accessTokenExpiration) <= DateTime.Now)
+                if (DateTime.Parse(accessTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now)
                 {
                     KeycloakAuthenticationOptions options;
                     if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
