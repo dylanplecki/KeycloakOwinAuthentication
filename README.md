@@ -1,4 +1,4 @@
-# Keycloak OWIN Authentication
+# Keycloak OWIN Authentication [![Build status](https://ci.appveyor.com/api/projects/status/xf1kvor22ya99h6w?svg=true)](https://ci.appveyor.com/project/DylanPlecki/keycloakowinauthentication)
 ###### Owin.Security.Keycloak - OWIN Authentication Middleware for C# Applications
 ----------------------------------------------------------------------------------
 
