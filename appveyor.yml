@@ -45,7 +45,6 @@ deploy:
     artifact: /.*\.nupkg/
     on:
       branch: master
-      appveyor_repo_tag: true
   - provider: GitHub
     release: v$(appveyor_build_version)
     description: 'Automated release of Keycloak Owin Authentication version $(appveyor_build_version) via Appveyor.'
