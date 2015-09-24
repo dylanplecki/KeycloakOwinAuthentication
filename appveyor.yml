@@ -13,6 +13,8 @@ pull_requests:
 nuget:
   disable_publish_on_pr: true
 
+install:
+  - set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
 before_build:
   - nuget restore src\KeycloakOwinAuthentication.sln
 
@@ -51,7 +53,7 @@ deploy:
       appveyor_repo_tag: true
   - provider: GitHub
     release: v$(appveyor_build_version)
-    description: 'Automated release of Keycloak Owin Authentication version $(appveyor_build_version)'
+    description: 'Automated release of Keycloak Owin Authentication version $(appveyor_build_version) via Appveyor.'
     auth_token:
       secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
     artifact: /.*\.nupkg/
