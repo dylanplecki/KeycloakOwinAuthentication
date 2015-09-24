@@ -13,8 +13,6 @@ pull_requests:
 nuget:
   disable_publish_on_pr: true
 
-install:
-  - set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
 before_build:
   - nuget restore src\KeycloakOwinAuthentication.sln
 
