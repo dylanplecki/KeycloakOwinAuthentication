@@ -25,9 +25,6 @@ cache: packages -> **\packages.config
 
 matrix:
   fast_finish: true
-    allow_failures:
-      - platform: Any CPU
-        configuration: Debug
 
 assembly_info:
   patch: true
