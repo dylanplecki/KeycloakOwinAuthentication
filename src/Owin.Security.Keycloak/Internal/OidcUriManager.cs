@@ -223,6 +223,9 @@ namespace Owin.Security.Keycloak.Internal
                     parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
 
+            if (!string.IsNullOrWhiteSpace(_options.IdentityProvider))
+                parameters.Add(Constants.KeycloakParameters.IdpHint, _options.IdentityProvider);
+
             return new FormUrlEncodedContent(parameters);
         }
 

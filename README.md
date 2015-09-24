@@ -1,4 +1,4 @@
-# Keycloak OWIN Authentication
+# Keycloak OWIN Authentication [![Build status](https://ci.appveyor.com/api/projects/status/xf1kvor22ya99h6w?svg=true)](https://ci.appveyor.com/project/DylanPlecki/keycloakowinauthentication)
 ###### Owin.Security.Keycloak - OWIN Authentication Middleware for C# Applications
 ----------------------------------------------------------------------------------
 
@@ -97,6 +97,17 @@ public string ClientSecret;
 ///   - Default: Base URL
 /// </remarks>
 public string PostLogoutRedirectUrl;
+
+/// <summary>
+/// OPTIONAL: Choose a default identity provider to use for the application
+/// </summary>
+/// <remarks>
+///   - The value here must be a valid IDP ID in the specified Keycloak realm
+///   - Only this chosen IDP may be used with this application
+///   - The Keycloak login page will not be shown when this option is non-empty
+///   - Default: None
+/// </remarks>
+public string IdentityProvider { get; set; }
 
 /// <summary>
 /// OPTIONAL: Automatically refresh user tokens upon expiration

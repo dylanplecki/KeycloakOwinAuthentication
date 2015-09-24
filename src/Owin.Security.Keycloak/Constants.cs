@@ -16,6 +16,11 @@
             public const string IssuedAt = "issued_at";
         }
 
+        internal static class KeycloakParameters
+        {
+            public const string IdpHint = "kc_idp_hint";
+        }
+
         internal static class CacheTypes
         {
             public const string ReturnUri = "returnUri";

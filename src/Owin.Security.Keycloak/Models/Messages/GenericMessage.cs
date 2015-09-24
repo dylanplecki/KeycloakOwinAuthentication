@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Owin;
+using System.Security.Authentication;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
@@ -34,8 +35,10 @@ namespace Owin.Security.Keycloak.Models.Messages
             }
 
             // Check for HTTP errors
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+                throw new AuthenticationException(); // Assume bad credentials
             if (!response.IsSuccessStatusCode)
-                throw new Exception("HTTP client returned an error");
+                throw new Exception("HTTP client returned an unrecoverable error");
 
             return response;
         }

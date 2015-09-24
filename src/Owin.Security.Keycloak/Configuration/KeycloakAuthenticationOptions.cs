@@ -58,6 +58,17 @@ namespace Owin.Security.Keycloak
         public string PostLogoutRedirectUrl { get; set; }
 
         /// <summary>
+        /// OPTIONAL: Choose a default identity provider to use for the application
+        /// </summary>
+        /// <remarks>
+        ///   - The value here must be a valid IDP ID in the specified Keycloak realm
+        ///   - Only this chosen IDP may be used with this application
+        ///   - The Keycloak login page will not be shown when this option is non-empty
+        ///   - Default: None
+        /// </remarks>
+        public string IdentityProvider { get; set; }
+
+        /// <summary>
         /// OPTIONAL: Automatically refresh user tokens upon expiration
         /// </summary>
         /// <remarks>
