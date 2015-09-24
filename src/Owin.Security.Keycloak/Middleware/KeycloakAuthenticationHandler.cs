@@ -175,6 +175,7 @@ namespace Owin.Security.Keycloak.Middleware
             {
                 context.RejectIdentity();
                 // TODO: Some kind of exception logging
+                throw;
             }
         }
 
