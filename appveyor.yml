@@ -1,0 +1,62 @@
+version: '1.0.3.{build}'
+configuration: Release
+platform: Any CPU
+os: Windows Server 2012
+
+branches:
+  except:
+    - gh-pages
+
+skip_tags: true
+pull_requests:
+  do_not_increment_build_number: true
+
+nuget:
+  disable_publish_on_pr: true
+  
+build:
+  project: src\KeycloakOwinAuthentication.sln
+  publish_nuget: true
+  publish_nuget_symbols: true
+  include_nuget_references: true
+  parallel: true
+  verbosity: normal
+cache: packages -> **\packages.config
+
+matrix:
+  fast_finish: true
+    allow_failures:
+      - platform: Any CPU
+        configuration: Debug
+
+assembly_info:
+  patch: true
+  file: AssemblyInfo.*
+  assembly_version: "{version}"
+  assembly_file_version: "{version}"
+  assembly_informational_version: "{version}"
+
+artifacts:
+  - path: src\**\*.nupkg
+
+deploy:
+  - provider: NuGet
+    server: 
+    api_key:
+      secure: jigW/LbSeBUxnQNVrzZqAEDhk9JFMlq5y+00yxi6SwgoQHfFWPUT5tmku3tbp8tz
+    skip_symbols: false
+    symbol_server: 
+    artifact: /.*\.nupkg/
+    on:
+      branch: master
+      appveyor_repo_tag: true
+  - provider: GitHub
+    release: v$(appveyor_build_version)
+    description: 'Automated release of Keycloak Owin Authentication version $(appveyor_build_version)'
+    auth_token:
+      secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
+    artifact: /.*\.nupkg/
+    draft: false
+    prerelease: false
+    on:
+      branch: master
