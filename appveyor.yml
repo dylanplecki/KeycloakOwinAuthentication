@@ -23,7 +23,7 @@ build:
   include_nuget_references: true
   parallel: true
   verbosity: normal
-cache: packages -> **\packages.config
+cache: src\packages -> src\**\packages.config
 
 matrix:
   fast_finish: true
@@ -34,9 +34,6 @@ assembly_info:
   assembly_version: "{version}"
   assembly_file_version: "{version}"
   assembly_informational_version: "{version}"
-
-artifacts:
-  - path: src\**\*.nupkg
 
 deploy:
   - provider: NuGet
