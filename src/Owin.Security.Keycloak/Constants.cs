@@ -16,6 +16,11 @@
             public const string IssuedAt = "issued_at";
         }
 
+        internal static class OpenIdConnectParameterNames
+        {
+            public const string RefreshToken = "refresh_token";
+        }
+
         internal static class KeycloakParameters
         {
             public const string IdpHint = "kc_idp_hint";

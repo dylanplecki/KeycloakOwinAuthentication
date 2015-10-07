@@ -74,7 +74,7 @@ namespace Owin.Security.Keycloak.Middleware
                 ThrowInvalidOption("PostLogoutRedirectUrl");
 
             // Attempt to refresh OIDC metadata from endpoint
-            var uriManagerTask = OidcUriManager.CreateCachedContext(Options, false);
+            var uriManagerTask = OidcDataManager.CreateCachedContext(Options, false);
             uriManagerTask.Wait();
             var uriManager = uriManagerTask.Result;
 

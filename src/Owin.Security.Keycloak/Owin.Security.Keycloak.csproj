@@ -94,6 +94,7 @@
     <Compile Include="Extensions\DateTimeExtension.cs" />
     <Compile Include="Extensions\HttpClientExtension.cs" />
     <Compile Include="Global.cs" />
+    <Compile Include="Internal\KeycloakIdentity.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
     <Compile Include="Models\Responses\AuthorizationResponse.cs" />
@@ -106,7 +107,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Internal\ClaimMapping\ClaimMappings.cs" />
     <Compile Include="Internal\ClaimMapping\ClaimLookup.cs" />
-    <Compile Include="Internal\OidcUriManager.cs" />
+    <Compile Include="Internal\OidcDataManager.cs" />
     <Compile Include="Utilities\Cache.cs" />
     <Compile Include="Internal\StateCache.cs" />
     <Compile Include="Utilities\Synchronization\ReaderGuard.cs" />

@@ -6,15 +6,18 @@ namespace Owin.Security.Keycloak.Models.Responses
 {
     internal class TokenResponse : OidcResponse
     {
+        public TokenResponse(string encodedJson)
+            : this(JObject.Parse(encodedJson))
+        {
+        }
+
         public TokenResponse(JObject json)
         {
             var authResult = new NameValueCollection();
 
             // Convert JSON to NameValueCollection type
             foreach (var item in json)
-            {
                 authResult.Add(item.Key, item.Value.ToString());
-            }
 
             Init(authResult);
         }
@@ -38,7 +41,7 @@ namespace Owin.Security.Keycloak.Models.Responses
             ExpiresIn = authResult.Get(OpenIdConnectParameterNames.ExpiresIn);
             IdToken = authResult.Get(OpenIdConnectParameterNames.IdToken);
             TokenType = authResult.Get(OpenIdConnectParameterNames.TokenType);
-            RefreshToken = authResult.Get("refresh_token");
+            RefreshToken = authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken);
         }
     }
 }

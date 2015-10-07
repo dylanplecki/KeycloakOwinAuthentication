@@ -22,7 +22,7 @@ namespace Owin.Security.Keycloak.Middleware
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
             // Check for valid callback URI
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContext(Options);
             if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
@@ -105,7 +105,7 @@ namespace Owin.Security.Keycloak.Middleware
             var state = Global.StateCache.CreateState(stateData);
 
             // Generate login URI and data
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContext(Options);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
@@ -117,7 +117,7 @@ namespace Owin.Security.Keycloak.Middleware
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
             // Generate logout URI and data
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContext(Options);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
@@ -146,7 +146,8 @@ namespace Owin.Security.Keycloak.Middleware
 
                 // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
                 if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now ||
+                    refreshTokenExpiration == null ||
+                    DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now ||
                     !Global.CheckVersion(version))
                 {
                     throw new AuthenticationException();
@@ -161,7 +162,8 @@ namespace Owin.Security.Keycloak.Middleware
                         throw new AuthenticationException();
                     }
 
-                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
+                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options.AuthenticationType,
+                        refreshToken);
                     var claims = await message.ExecuteAsync();
                     var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
                     context.ReplaceIdentity(identity);
