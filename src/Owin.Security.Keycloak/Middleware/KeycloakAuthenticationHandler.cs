@@ -162,8 +162,7 @@ namespace Owin.Security.Keycloak.Middleware
                         throw new AuthenticationException();
                     }
 
-                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options.AuthenticationType,
-                        refreshToken);
+                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
                     var claims = await message.ExecuteAsync();
                     var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
                     context.ReplaceIdentity(identity);

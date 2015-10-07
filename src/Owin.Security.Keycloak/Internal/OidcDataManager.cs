@@ -152,6 +152,7 @@ namespace Owin.Security.Keycloak.Internal
         public async Task<IEnumerable<SecurityToken>> LoadJwkTokens(Uri jwksUri)
         {
             // TODO
+            return null;
         }
 
         #endregion
