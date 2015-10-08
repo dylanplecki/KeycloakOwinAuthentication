@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
-using System.IdentityModel.Tokens;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Owin.Security.Keycloak.Internal.ClaimMapping;
+using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Internal
@@ -20,31 +23,48 @@ namespace Owin.Security.Keycloak.Internal
             _keycloakToken = tokenResponse;
         }
 
-        public async Task<ClaimsPrincipal> ValidateIdentity(KeycloakAuthenticationOptions options)
+        public async Task<ClaimsIdentity> ValidateIdentity(KeycloakAuthenticationOptions options)
         {
             var uriManager = await OidcDataManager.GetCachedContext(options);
-            return ValidateIdentity(options.ClientId, uriManager.GetIssuer(), uriManager.GetJwkTokens());
+            var signingKeys = uriManager.GetJsonWebKeys();
+
+            // Validate all of the JWTs
+            _keycloakToken.IdToken.Validate(signingKeys);
+            _keycloakToken.AccessToken.Validate(signingKeys);
+            _keycloakToken.RefreshToken.Validate(signingKeys);
+
+            // Create the new claims identity
+            return new ClaimsIdentity(GenerateJwtClaims(options), options.SignInAsAuthenticationType);
         }
 
-        public ClaimsPrincipal ValidateIdentity(string audience, string issuer, IEnumerable<SecurityToken> signingKeys)
+        public IEnumerable<Claim> GenerateJwtClaims(KeycloakAuthenticationOptions options)
         {
-            // Generate token validation parameters
-            var tokenValidationParams = new TokenValidationParameters // TODO: Add more?
+            // Add generic claims
+            yield return new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType);
+            yield return new Claim(Constants.ClaimTypes.Version, Global.GetVersion());
+
+            // Save the recieved tokens as claims
+            if (options.SaveTokensAsClaims)
             {
-                ValidAudience = audience,
-                ValidIssuer = issuer,
-                IssuerSigningTokens = signingKeys
-            };
+                yield return new Claim(Constants.ClaimTypes.IdToken, _keycloakToken.IdToken.EncodedJwt);
+                yield return new Claim(Constants.ClaimTypes.AccessToken, _keycloakToken.AccessToken.EncodedJwt);
+                yield return new Claim(Constants.ClaimTypes.RefreshToken, _keycloakToken.RefreshToken.EncodedJwt);
+            }
 
-            // Decode and validate JWT (tokens)
-            SecurityToken accessToken, idToken;
-            var jwtHandler = new JwtSecurityTokenHandler();
-            var idTokenIdentity = jwtHandler.ValidateToken(_keycloakToken.IdToken, tokenValidationParams, out idToken);
-            var accessTokenIdentity = jwtHandler.ValidateToken(_keycloakToken.AccessToken, tokenValidationParams,
-                out accessToken);
+            // Add OIDC token claims
+            foreach (var claim in ProcessOidcToken(_keycloakToken.IdToken, ClaimMappings.IdTokenMappings))
+                yield return claim;
+            foreach (var claim in ProcessOidcToken(_keycloakToken.AccessToken, ClaimMappings.AccessTokenMappings))
+                yield return claim;
+            foreach (var claim in ProcessOidcToken(_keycloakToken.RefreshToken, ClaimMappings.RefreshTokenMappings))
+                yield return claim;
+        }
 
-            // TODO: Merge identities and get roles / other info
-            return null;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static IEnumerable<Claim> ProcessOidcToken(JsonWebToken webToken, IEnumerable<ClaimLookup> claimMappings)
+        {
+            // Process claim mappings
+            return claimMappings.SelectMany(lookupClaim => lookupClaim.ProcessClaimLookup(webToken.Payload));
         }
     }
 }

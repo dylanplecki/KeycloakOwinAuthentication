@@ -4,7 +4,6 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Internal.ClaimMapping;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
@@ -22,8 +21,8 @@ namespace Owin.Security.Keycloak.Models.Messages
 
         public override async Task<IEnumerable<Claim>> ExecuteAsync()
         {
-            var tokenResponse = await ExecuteHttpRequestAsync(RefreshToken);
-            return await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
+            var newKcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync(RefreshToken));
+            return (await newKcIdentity.ValidateIdentity(Options)).Claims;
         }
 
         private async Task<string> ExecuteHttpRequestAsync(string refreshToken)

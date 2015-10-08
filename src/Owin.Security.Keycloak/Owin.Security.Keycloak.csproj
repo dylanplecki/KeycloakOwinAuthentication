@@ -97,11 +97,12 @@
     <Compile Include="Internal\KeycloakIdentity.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
+    <Compile Include="Utilities\CertSigningHelper.cs" />
+    <Compile Include="Models\JsonWebToken.cs" />
     <Compile Include="Models\Responses\AuthorizationResponse.cs" />
     <Compile Include="Models\Messages\GenericMessage.cs" />
     <Compile Include="Models\Messages\RefreshAccessTokenMessage.cs" />
     <Compile Include="Models\Messages\RequestAccessTokenMessage.cs" />
-    <Compile Include="Internal\ClaimMapping\ClaimGenerator.cs" />
     <Compile Include="Models\Responses\OidcResponse.cs" />
     <Compile Include="Models\Responses\TokenResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

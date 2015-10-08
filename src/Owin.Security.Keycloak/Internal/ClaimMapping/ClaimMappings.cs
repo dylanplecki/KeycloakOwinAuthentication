@@ -8,47 +8,6 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
 {
     internal static class ClaimMappings
     {
-        public static IEnumerable<ClaimLookup> JwtTokenMappings { get; } = new List<ClaimLookup>
-        {
-            new ClaimLookup
-            {
-                ClaimName = Constants.ClaimTypes.AccessToken,
-                JSelectQuery = "access_token"
-            },
-            new ClaimLookup
-            {
-                ClaimName = Constants.ClaimTypes.IdToken,
-                JSelectQuery = "id_token"
-            },
-            new ClaimLookup
-            {
-                ClaimName = Constants.ClaimTypes.RefreshToken,
-                JSelectQuery = "refresh_token"
-            },
-            new ClaimLookup
-            {
-                ClaimName = Constants.ClaimTypes.AccessTokenExpiration,
-                JSelectQuery = "expires_in",
-                Transformation = delegate(JToken token)
-                {
-                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
-                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
-                    return dateTime.ToString(CultureInfo.InvariantCulture);
-                }
-            },
-            new ClaimLookup
-            {
-                ClaimName = Constants.ClaimTypes.RefreshTokenExpiration,
-                JSelectQuery = "refresh_expires_in",
-                Transformation = delegate(JToken token)
-                {
-                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
-                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
-                    return dateTime.ToString(CultureInfo.InvariantCulture);
-                }
-            }
-        };
-
         public static IEnumerable<ClaimLookup> AccessTokenMappings { get; } = new List<ClaimLookup>
         {
             new ClaimLookup
@@ -68,9 +27,19 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             },
             new ClaimLookup
             {
+                ClaimName = Constants.ClaimTypes.AccessTokenExpiration,
+                JSelectQuery = "exp",
+                Transformation = delegate(JToken token)
+                {
+                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
+                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
+                    return dateTime.ToString(CultureInfo.InvariantCulture);
+                }
+            },
+            new ClaimLookup
+            {
                 ClaimName = ClaimTypes.Role,
-                JSelectQuery = "resource_access.{0}.roles",
-                IsPluralQuery = true
+                JSelectQuery = "resource_access"
             }
         };
 
@@ -100,6 +69,21 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             {
                 ClaimName = ClaimTypes.Email,
                 JSelectQuery = "email"
+            }
+        };
+
+        public static IEnumerable<ClaimLookup> RefreshTokenMappings { get; } = new List<ClaimLookup>
+        {
+            new ClaimLookup
+            {
+                ClaimName = Constants.ClaimTypes.RefreshTokenExpiration,
+                JSelectQuery = "exp",
+                Transformation = delegate(JToken token)
+                {
+                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
+                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
+                    return dateTime.ToString(CultureInfo.InvariantCulture);
+                }
             }
         };
     }

@@ -25,14 +25,6 @@ namespace Owin.Security.Keycloak.Models.Responses
         public string Code { get; private set; }
         public string State { get; private set; }
 
-        protected new void Init(NameValueCollection authResult)
-        {
-            base.Init(authResult);
-
-            Code = authResult.Get(OpenIdConnectParameterNames.Code);
-            State = authResult.Get(OpenIdConnectParameterNames.State);
-        }
-
         public bool Validate()
         {
             return !string.IsNullOrWhiteSpace(Code) && !string.IsNullOrWhiteSpace(State);

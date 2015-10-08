@@ -22,26 +22,23 @@ namespace Owin.Security.Keycloak.Models.Responses
             Init(authResult);
         }
 
-        public TokenResponse(NameValueCollection authResult)
-        {
-            Init(authResult);
-        }
-
-        public string AccessToken { get; private set; }
         public string ExpiresIn { get; private set; }
-        public string IdToken { get; private set; }
-        public string RefreshToken { get; private set; }
         public string TokenType { get; private set; }
+
+        public JsonWebToken IdToken { get; private set; }
+        public JsonWebToken AccessToken { get; private set; }
+        public JsonWebToken RefreshToken { get; private set; }
 
         protected new void Init(NameValueCollection authResult)
         {
             base.Init(authResult);
 
-            AccessToken = authResult.Get(OpenIdConnectParameterNames.AccessToken);
             ExpiresIn = authResult.Get(OpenIdConnectParameterNames.ExpiresIn);
-            IdToken = authResult.Get(OpenIdConnectParameterNames.IdToken);
             TokenType = authResult.Get(OpenIdConnectParameterNames.TokenType);
-            RefreshToken = authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken);
+
+            IdToken = new JsonWebToken(authResult.Get(OpenIdConnectParameterNames.IdToken));
+            AccessToken = new JsonWebToken(authResult.Get(OpenIdConnectParameterNames.AccessToken));
+            RefreshToken = new JsonWebToken(authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken));
         }
     }
 }

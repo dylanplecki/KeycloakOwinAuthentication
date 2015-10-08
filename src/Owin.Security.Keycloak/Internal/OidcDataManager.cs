@@ -8,6 +8,7 @@ using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Utilities.Synchronization;
 
 namespace Owin.Security.Keycloak.Internal
@@ -40,7 +41,7 @@ namespace Owin.Security.Keycloak.Internal
             public Uri UserInfoEndpoint;
 
             public string Issuer;
-            public IEnumerable<SecurityToken> Jwks;
+            public JsonWebKeySet Jwks;
         }
 
         #region Context Caching
@@ -92,19 +93,14 @@ namespace Owin.Security.Keycloak.Internal
 
         public async Task RefreshMetadataAsync()
         {
-            var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(MetadataEndpoint);
-
-            // Fail on unreachable destination
-            if (!response.IsSuccessStatusCode)
-                throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address unreachable ('{MetadataEndpoint}')");
+            // Get Metadata from endpoint
+            var dataTask = HttpApiGet(MetadataEndpoint);
 
             // Try to get the JSON metadata object
             JObject json;
             try
             {
-                json = JObject.Parse(await response.Content.ReadAsStringAsync());
+                json = JObject.Parse(await dataTask);
             }
             catch (JsonReaderException exception)
             {
@@ -138,7 +134,7 @@ namespace Owin.Security.Keycloak.Internal
                     }
 
                     // Load JSON Web Key Tokens
-                    _metadata.Jwks = await LoadJwkTokens(_metadata.JwksEndpoint);
+                    _metadata.Jwks = new JsonWebKeySet(await HttpApiGet(_metadata.JwksEndpoint));
                 }
             }
             catch (Exception exception)
@@ -149,10 +145,17 @@ namespace Owin.Security.Keycloak.Internal
             }
         }
 
-        public async Task<IEnumerable<SecurityToken>> LoadJwkTokens(Uri jwksUri)
+        private static async Task<string> HttpApiGet(Uri uri)
         {
-            // TODO
-            return null;
+            var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(uri);
+
+            // Fail on unreachable destination
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(
+                    $"RefreshMetadataAsync: HTTP address unreachable ('{uri}')");
+
+            return await response.Content.ReadAsStringAsync();
         }
 
         #endregion
@@ -212,7 +215,7 @@ namespace Owin.Security.Keycloak.Internal
             }
         }
 
-        public IEnumerable<SecurityToken> GetJwkTokens()
+        public JsonWebKeySet GetJsonWebKeys()
         {
             using (new ReaderGuard(_metadata.Lock))
             {
