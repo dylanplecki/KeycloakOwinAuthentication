@@ -12,44 +12,38 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
 
         public string ClaimName { get; set; }
         public string JSelectQuery { get; set; }
-        public bool RequirePropertyId { get; set; } = false;
         public TransformFunc Transformation { get; set; } = token => token.ToString();
 
         public IEnumerable<Claim> ProcessClaimLookup(JObject jsonObject, string jsonObjectId)
         {
-            var token = jsonObject.SelectToken(JSelectQuery);
-            return token == null ? new List<Claim>() : GenerateClaims(token, jsonObjectId);
+            var token = jsonObject.SelectToken(JSelectQuery.Replace("{gid}", jsonObjectId));
+            return token == null ? new List<Claim>() : GenerateClaims(token);
         }
 
-        private IEnumerable<Claim> GenerateClaims(JToken jsonToken, string jsonTokenId)
+        private IEnumerable<Claim> GenerateClaims(JToken jsonToken)
         {
-            if (jsonToken.Type == JTokenType.Property)
+            switch (jsonToken.Type)
             {
-                if (RequirePropertyId &&
-                    !string.Equals(((JProperty) jsonToken).Name, jsonTokenId, StringComparison.CurrentCultureIgnoreCase))
-                    yield break;
-                var jsonValueToken = ((JProperty) jsonToken).Value;
+                case JTokenType.Property:
+                    foreach (var claim in ((JProperty)jsonToken).Value.SelectMany(GenerateClaims))
+                        yield return claim;
+                    break;
 
-                switch (jsonValueToken.Type)
-                {
-                    case JTokenType.Array:
-                        foreach (var claim in ((JArray) jsonValueToken).SelectMany(t => GenerateClaims(t, jsonTokenId)))
-                            yield return claim;
-                        break;
-                    case JTokenType.Object:
-                        foreach (
-                            var claim in
-                                ((JObject) jsonValueToken).Children().SelectMany(t => GenerateClaims(t, jsonTokenId)))
-                            yield return claim;
-                        break;
-                    default:
-                        yield return new Claim(ClaimName, Transformation?.Invoke(jsonValueToken));
-                        break;
-                }
-            }
-            else
-            {
-                yield return new Claim(ClaimName, Transformation?.Invoke(jsonToken));
+                case JTokenType.Array:
+                    foreach (var claim in ((JArray)jsonToken).SelectMany(GenerateClaims))
+                        yield return claim;
+                    break;
+
+                case JTokenType.Object:
+                    foreach (
+                        var claim in
+                            ((JObject)jsonToken).Children().SelectMany(GenerateClaims))
+                        yield return claim;
+                    break;
+
+                default:
+                    yield return new Claim(ClaimName, Transformation?.Invoke(jsonToken));
+                    break;
             }
         }
     }

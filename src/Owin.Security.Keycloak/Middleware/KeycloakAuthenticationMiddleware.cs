@@ -54,6 +54,8 @@ namespace Owin.Security.Keycloak.Middleware
 
             if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
                 Options.SaveTokensAsClaims = true;
+            if (Options.ForceBearerTokenAuth && !Options.EnableBearerTokenAuth)
+                Options.EnableBearerTokenAuth = true;
 
             // ReSharper disable once PossibleNullReferenceException
             if (Options.KeycloakUrl.EndsWith("/"))
@@ -74,7 +76,7 @@ namespace Owin.Security.Keycloak.Middleware
                 ThrowInvalidOption("PostLogoutRedirectUrl");
 
             // Attempt to refresh OIDC metadata from endpoint
-            var uriManagerTask = OidcDataManager.CreateCachedContext(Options, false);
+            var uriManagerTask = OidcDataManager.CreateCachedContextAsync(Options, false);
             uriManagerTask.Wait();
             var uriManager = uriManagerTask.Result;
 

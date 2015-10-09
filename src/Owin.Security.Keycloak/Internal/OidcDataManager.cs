@@ -47,32 +47,31 @@ namespace Owin.Security.Keycloak.Internal
 
         #region Context Caching
 
-        public static async Task<OidcDataManager> GetCachedContext(KeycloakAuthenticationOptions options)
+        // TODO: Check for multithreading memory contention scenarios
+        public static async Task<OidcDataManager> GetCachedContextAsync(KeycloakAuthenticationOptions options)
         {
-            using (new ReaderGuard(CacheLock))
-            {
-                var context =
-                    HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
+            var context = GetCachedContext(options);
+            if (context == null) // Create a new context if required
+                context = await CreateCachedContextAsync(options);
+            else if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
+                await context.TryRefreshMetadataAsync();
 
-                if (context == null) // Create a new context if required
-                    context = await CreateCachedContext(options);
-                else if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
-                    await context.TryRefreshMetadataAsync();
-
-                return context;
-            }
+            return context;
+        }
+        
+        public static OidcDataManager GetCachedContext(KeycloakAuthenticationOptions options)
+        {
+            return HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
         }
 
-        public static async Task<OidcDataManager> CreateCachedContext(KeycloakAuthenticationOptions options,
+        // TODO: Check for multithreading memory contention scenarios
+        public static async Task<OidcDataManager> CreateCachedContextAsync(KeycloakAuthenticationOptions options,
             bool preload = true)
         {
-            using (new WriterGuard(CacheLock))
-            {
-                var cachedContext = new OidcDataManager(options);
-                if (preload) await cachedContext.RefreshMetadataAsync();
-                HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
-                return cachedContext;
-            }
+            var cachedContext = new OidcDataManager(options);
+            if (preload) await cachedContext.RefreshMetadataAsync();
+            HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
+            return cachedContext;
         }
 
         #endregion

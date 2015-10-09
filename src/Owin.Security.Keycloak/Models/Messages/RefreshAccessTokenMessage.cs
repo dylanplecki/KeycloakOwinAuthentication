@@ -27,7 +27,7 @@ namespace Owin.Security.Keycloak.Models.Messages
 
         private async Task<string> ExecuteHttpRequestAsync(string refreshToken)
         {
-            var uriManager = await OidcDataManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             var response =
                 await
                     SendHttpPostRequest(uriManager.GetTokenEndpoint(),

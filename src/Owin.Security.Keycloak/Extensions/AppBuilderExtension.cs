@@ -8,18 +8,23 @@ namespace Owin.Security.Keycloak
     {
         public static IAppBuilder UseKeycloakAuthentication(this IAppBuilder app, KeycloakAuthenticationOptions options)
         {
+            // Check for invalid null options
+            if (options.CookieAuthenticationOptions == null)
+                options.CookieAuthenticationOptions = new CookieAuthenticationOptions();
+
+            // Validate some required options here
+            ValidateCookieOptions(options);
+
             // Only enable cookies if 'ForceBearerTokenAuth' is disabled
-            if (!options.ForceBearerTokenAuth)
+            if (options.ForceBearerTokenAuth)
             {
-                // Check for invalid null options
-                if (options.CookieAuthenticationOptions == null)
-                    options.CookieAuthenticationOptions = new CookieAuthenticationOptions();
-
-                // Validate some required options here
-                ValidateCookieOptions(options);
-
+                app.Use(typeof(KeycloakAuthenticationMiddleware), app, options);
+                app.SetDefaultSignInAsAuthenticationType(options.AuthenticationType);
+            }
+            else
+            {
                 app.UseCookieAuthentication(options.CookieAuthenticationOptions);
-                app.Use(typeof (KeycloakAuthenticationMiddleware), app, options);
+                app.Use(typeof(KeycloakAuthenticationMiddleware), app, options);
                 app.SetDefaultSignInAsAuthenticationType(options.CookieAuthenticationOptions.AuthenticationType);
             }
 

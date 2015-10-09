@@ -12,6 +12,7 @@ using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Internal;
+using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Messages;
 using Owin.Security.Keycloak.Models.Responses;
 
@@ -22,7 +23,7 @@ namespace Owin.Security.Keycloak.Middleware
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
             // Check for valid callback URI
-            var uriManager = await OidcDataManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
@@ -52,8 +53,29 @@ namespace Owin.Security.Keycloak.Middleware
             // Bearer token authentication override
             if (Options.EnableBearerTokenAuth)
             {
-                if (await ProcessBearerTokenAuth()) return true;
-                // Else continue to standard authentication
+                // Try to authenticate via bearer token auth
+                if (Request.Headers.ContainsKey(Constants.BearerTokenHeader))
+                {
+                    var bearerAuthArr = Request.Headers[Constants.BearerTokenHeader].Trim().Split(new[] {' '}, 2);
+                    if ((bearerAuthArr.Length == 2) && bearerAuthArr[0].ToLowerInvariant() == "bearer")
+                    {
+                        try
+                        {
+                            var authResponse = new TokenResponse(new JsonWebToken(bearerAuthArr[1]));
+                            var kcIdentity = new KeycloakIdentity(authResponse);
+                            var identity = await kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
+                            Context.Authentication.User = new ClaimsPrincipal(identity);
+                            return false;
+                        }
+                        catch (Exception)
+                        {
+                            // ignored
+                        }
+                    }
+                }
+
+                // If bearer token auth is forced, let app return 401
+                if (Options.ForceBearerTokenAuth) return false;
             }
 
             // Core authentication mechanism
@@ -89,10 +111,10 @@ namespace Owin.Security.Keycloak.Middleware
 
         protected override async Task ApplyResponseChallengeAsync()
         {
-            if (Options.ForceBearerTokenAuth) return;
-
             if (Response.StatusCode == 401)
             {
+                if (Options.ForceBearerTokenAuth) return;
+
                 var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
                 if (challenge == null) return;
 
@@ -117,7 +139,7 @@ namespace Owin.Security.Keycloak.Middleware
             var state = Global.StateCache.CreateState(stateData);
 
             // Generate login URI and data
-            var uriManager = await OidcDataManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
@@ -129,50 +151,13 @@ namespace Owin.Security.Keycloak.Middleware
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
             // Generate logout URI and data
-            var uriManager = await OidcDataManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
             // Redirect response to logout
             var logoutQueryString = await logoutParams.ReadAsStringAsync();
             Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
-        }
-
-        private async Task<bool> ProcessBearerTokenAuth()
-        {
-            // Try to authenticate via bearer token auth
-            if (Request.Headers.ContainsKey(Constants.BearerTokenHeader))
-            {
-                var bearerAuthArr = Request.Headers[Constants.BearerTokenHeader].Trim().Split(new[] { ' ' }, 2);
-                if ((bearerAuthArr.Length < 2) | bearerAuthArr[0].ToLowerInvariant() != "bearer")
-                {
-                    await
-                        GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request",
-                            "Invalid authorization header for bearer token");
-                    return true;
-                }
-
-                try
-                {
-                    var authResponse = new TokenResponse(bearerAuthArr[1]);
-                    var kcIdentity = new KeycloakIdentity(authResponse);
-                    Context.Authentication.SignIn(new AuthenticationProperties(),
-                        await kcIdentity.ValidateIdentity(Options));
-                    return false;
-                }
-                catch (Exception exception)
-                {
-                    await
-                        GenerateErrorResponseAsync(HttpStatusCode.InternalServerError, "Internal Server Error",
-                            exception.Message);
-                    return true;
-                }
-            }
-
-            // If bearer token auth is forced, return 401
-            if (!Options.ForceBearerTokenAuth) return false;
-            await GenerateUnauthorizedResponseAsync("Invalid bearer token authorization header");
-            return true;
         }
 
         internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
@@ -215,6 +200,7 @@ namespace Owin.Security.Keycloak.Middleware
                     var claims = await message.ExecuteAsync();
                     var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
                     context.ReplaceIdentity(identity);
+                    // TODO: Fix cookie not being sent
                 }
             }
             catch (AuthenticationException)

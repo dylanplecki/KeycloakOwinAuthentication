@@ -20,22 +20,15 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             {
                 ClaimName = Constants.ClaimTypes.IssuedAt,
                 JSelectQuery = "iat",
-                Transformation = delegate(JToken token)
-                {
-                    var unixTime = (token.Value<double?>() ?? 1) - 1;
-                    return unixTime.ToDateTime().ToString(CultureInfo.InvariantCulture);
-                }
+                Transformation =
+                    token => ((token.Value<double?>() ?? 1) - 1).ToDateTime().ToString(CultureInfo.InvariantCulture)
             },
             new ClaimLookup
             {
                 ClaimName = Constants.ClaimTypes.AccessTokenExpiration,
                 JSelectQuery = "exp",
-                Transformation = delegate(JToken token)
-                {
-                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
-                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
-                    return dateTime.ToString(CultureInfo.InvariantCulture);
-                }
+                Transformation =
+                    token => ((token.Value<double?>() ?? 1) - 1).ToDateTime().ToString(CultureInfo.InvariantCulture)
             },
             new ClaimLookup
             {
@@ -65,8 +58,7 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             new ClaimLookup
             {
                 ClaimName = ClaimTypes.Role,
-                JSelectQuery = "resource_access",
-                RequirePropertyId = true
+                JSelectQuery = "resource_access.{gid}.roles"
             }
         };
 
@@ -81,12 +73,8 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             {
                 ClaimName = Constants.ClaimTypes.RefreshTokenExpiration,
                 JSelectQuery = "exp",
-                Transformation = delegate(JToken token)
-                {
-                    var expiresInSec = (token.Value<double?>() ?? 1) - 1;
-                    var dateTime = DateTime.Now.AddSeconds(expiresInSec);
-                    return dateTime.ToString(CultureInfo.InvariantCulture);
-                }
+                Transformation =
+                    token => ((token.Value<double?>() ?? 1) - 1).ToDateTime().ToString(CultureInfo.InvariantCulture)
             }
         };
     }
