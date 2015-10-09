@@ -14,9 +14,6 @@ namespace Owin.Security.Keycloak.Models
         public string Signature { get; private set; }
         public string EncodedJwt { get; private set; }
 
-        // TODO: Optimize this out via encoding mechanism
-        private readonly string _jwtHeaderPayload;
-
         public JsonWebToken(string encodedJwt)
         {
             EncodedJwt = encodedJwt;
@@ -26,9 +23,6 @@ namespace Owin.Security.Keycloak.Models
                 var encodedData = encodedJwt.Split('.');
                 if (encodedData.Length < 2)
                     throw new Exception("JWebToken: Invalid JWT length");
-
-                // Save header + payload for verification
-                _jwtHeaderPayload = encodedData[0] + '.' + encodedData[1];
 
                 // Parse header
                 var header = JObject.Parse(DecodeData(encodedData[0]));
@@ -44,15 +38,40 @@ namespace Owin.Security.Keycloak.Models
             }
         }
 
-        public bool Validate(JsonWebKeySet publicKeySet)
+        public bool Validate(JsonWebKeySet publicKeySet, bool forceSigned = false)
         {
-            return publicKeySet.Keys.Any(Validate);
+            return publicKeySet.Keys.Any(k => Validate(k, forceSigned));
         }
 
-        public bool Validate(JsonWebKey publicKey)
+        public void ForceValidate(JsonWebKeySet publicKeySet, bool forceSigned = false)
         {
-            // TODO: Finish validation function
-            return false;
+            if (!Validate(publicKeySet, forceSigned))
+                throw new Exception("JWT signature was unable to be validated");
+        }
+
+        public bool Validate(JsonWebKey publicKey, bool forceSigned = false)
+        {
+            return true; // TODO: REMOVE (DEBUG CODE)
+
+            var alg = CertSigningHelper.LookupSigningAlgorithm(publicKey.Alg);
+
+            // Parse JWT for signature part
+            var data = EncodedJwt.Split('.');
+            var signedData = Guid.NewGuid().ToString(); // Randomize for security
+            if (data.Length > 2) // If JWT has a signature
+                signedData = data[0] + '.' + data[1];
+
+            switch (alg)
+            {
+                case SigningAlgorithm.Rs256:
+                    return false; // TODO: Validate via RS256
+                case SigningAlgorithm.Hs256:
+                    return false; // TODO: Validate via HS256
+                case SigningAlgorithm.None:
+                    return !forceSigned;
+                default:
+                    return false;
+            }
         }
 
         private static string DecodeData(string encodedData)

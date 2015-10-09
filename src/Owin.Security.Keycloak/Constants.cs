@@ -28,8 +28,9 @@
 
         internal static class CacheTypes
         {
-            public const string ReturnUri = "returnUri";
             public const string AuthenticationProperties = "authProperties";
         }
+
+        public const string BearerTokenHeader = "Authorization";
     }
 }

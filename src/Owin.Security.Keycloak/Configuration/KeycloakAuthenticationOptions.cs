@@ -85,6 +85,43 @@ namespace Owin.Security.Keycloak
         /// </remarks>
         public bool SaveTokensAsClaims { get; set; } = true;
 
+        /// <summary>
+        /// OPTIONAL: Allow authentication via the bearer token authorization header
+        /// </summary>
+        /// <remarks>
+        ///   - Forced enabled when using 'ForceBearerTokenAuth'
+        ///   - Default: False
+        /// </remarks>
+        public bool EnableBearerTokenAuth { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL: Force all authentication to be done via 'BearerTokenAuth' (above)
+        /// </summary>
+        /// <remarks>
+        ///   - If an inbound request does not present a valid bearer token,
+        ///     a 403 error will be issued.
+        ///   - Default: False
+        /// </remarks>
+        public bool ForceBearerTokenAuth { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL: Whether to allow the extension to accept unsigned tokens
+        /// </summary>
+        /// <remarks>
+        ///   - If enabled, this will create a security hole
+        ///   - Default: False
+        /// </remarks>
+        public bool AllowUnsignedTokens { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL: The interval in seconds for the OIDC metadata to refresh
+        /// </summary>
+        /// <remarks>
+        ///   - User -1 for no refreshing, and 0 for always refresh
+        ///   - Default: 300 seconds (5 minutes)
+        /// </remarks>
+        public int MetadataRefreshInterval { get; set; } = 300;
+
         public string CallbackPath { get; set; }
         public string ResponseType { get; set; }
         public string SignInAsAuthenticationType { get; set; }

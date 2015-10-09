@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,7 +7,6 @@ using System.Web;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Utilities.Synchronization;
 
 namespace Owin.Security.Keycloak.Internal
@@ -19,12 +17,15 @@ namespace Owin.Security.Keycloak.Internal
         private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
         private readonly Metadata _metadata = new Metadata();
         private readonly KeycloakAuthenticationOptions _options;
+        private DateTime _nextCachedRefreshTime;
+
         public readonly string Authority;
         public readonly Uri MetadataEndpoint;
 
         private OidcDataManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
+            _nextCachedRefreshTime = DateTime.Now;
 
             Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
             MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
@@ -48,17 +49,17 @@ namespace Owin.Security.Keycloak.Internal
 
         public static async Task<OidcDataManager> GetCachedContext(KeycloakAuthenticationOptions options)
         {
-            OidcDataManager cachedContext;
-            var success = TryGetCachedContext(options.AuthenticationType, out cachedContext);
-            return success ? cachedContext : (await CreateCachedContext(options));
-        }
-
-        public static bool TryGetCachedContext(string authenticationType, out OidcDataManager context)
-        {
             using (new ReaderGuard(CacheLock))
             {
-                context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcDataManager;
-                return context != null;
+                var context =
+                    HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
+
+                if (context == null) // Create a new context if required
+                    context = await CreateCachedContext(options);
+                else if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
+                    await context.TryRefreshMetadataAsync();
+
+                return context;
             }
         }
 
@@ -113,10 +114,15 @@ namespace Owin.Security.Keycloak.Internal
             // Set internal URI properties
             try
             {
+                // Preload required data fields
+                var jwksEndpoint = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
+                var jwks = new JsonWebKeySet(await HttpApiGet(jwksEndpoint));
+
                 using (new WriterGuard(_metadata.Lock))
                 {
+                    _metadata.Jwks = jwks;
+                    _metadata.JwksEndpoint = jwksEndpoint;
                     _metadata.Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
-                    _metadata.JwksEndpoint = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
                     _metadata.AuthorizationEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
                     _metadata.TokenEndpoint =
@@ -132,10 +138,10 @@ namespace Owin.Security.Keycloak.Internal
                     {
                         throw new Exception("One or more metadata endpoints are missing");
                     }
-
-                    // Load JSON Web Key Tokens
-                    _metadata.Jwks = new JsonWebKeySet(await HttpApiGet(_metadata.JwksEndpoint));
                 }
+
+                // Update refresh time
+                _nextCachedRefreshTime = DateTime.Now.AddSeconds(_options.MetadataRefreshInterval);
             }
             catch (Exception exception)
             {

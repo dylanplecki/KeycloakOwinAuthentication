@@ -10,7 +10,7 @@ namespace Owin.Security.Keycloak.Models.Responses
         public string ErrorUri { get; private set; }
         public string ErrorDescription { get; private set; }
 
-        protected void Init(NameValueCollection authResult)
+        protected void InitFromRequest(NameValueCollection authResult)
         {
             Error = authResult.Get(OpenIdConnectParameterNames.Error);
             ErrorUri = authResult.Get(OpenIdConnectParameterNames.ErrorUri);

@@ -39,7 +39,7 @@ namespace Owin.Security.Keycloak.Middleware
                 }
                 catch (BadRequestException exception)
                 {
-                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, exception.Message);
+                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request", exception.Message);
                     return null;
                 }
             }
@@ -49,6 +49,14 @@ namespace Owin.Security.Keycloak.Middleware
 
         public override async Task<bool> InvokeAsync()
         {
+            // Bearer token authentication override
+            if (Options.EnableBearerTokenAuth)
+            {
+                if (await ProcessBearerTokenAuth()) return true;
+                // Else continue to standard authentication
+            }
+
+            // Core authentication mechanism
             var ticket = await AuthenticateAsync();
             if (ticket == null) return false;
 
@@ -69,6 +77,8 @@ namespace Owin.Security.Keycloak.Middleware
 
         protected override async Task ApplyResponseGrantAsync()
         {
+            if (Options.ForceBearerTokenAuth) return;
+
             var signout = Helper.LookupSignOut(Options.AuthenticationType, Options.AuthenticationMode);
 
             if (signout != null)
@@ -79,6 +89,8 @@ namespace Owin.Security.Keycloak.Middleware
 
         protected override async Task ApplyResponseChallengeAsync()
         {
+            if (Options.ForceBearerTokenAuth) return;
+
             if (Response.StatusCode == 401)
             {
                 var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
@@ -124,6 +136,43 @@ namespace Owin.Security.Keycloak.Middleware
             // Redirect response to logout
             var logoutQueryString = await logoutParams.ReadAsStringAsync();
             Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
+        }
+
+        private async Task<bool> ProcessBearerTokenAuth()
+        {
+            // Try to authenticate via bearer token auth
+            if (Request.Headers.ContainsKey(Constants.BearerTokenHeader))
+            {
+                var bearerAuthArr = Request.Headers[Constants.BearerTokenHeader].Trim().Split(new[] { ' ' }, 2);
+                if ((bearerAuthArr.Length < 2) | bearerAuthArr[0].ToLowerInvariant() != "bearer")
+                {
+                    await
+                        GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request",
+                            "Invalid authorization header for bearer token");
+                    return true;
+                }
+
+                try
+                {
+                    var authResponse = new TokenResponse(bearerAuthArr[1]);
+                    var kcIdentity = new KeycloakIdentity(authResponse);
+                    Context.Authentication.SignIn(new AuthenticationProperties(),
+                        await kcIdentity.ValidateIdentity(Options));
+                    return false;
+                }
+                catch (Exception exception)
+                {
+                    await
+                        GenerateErrorResponseAsync(HttpStatusCode.InternalServerError, "Internal Server Error",
+                            exception.Message);
+                    return true;
+                }
+            }
+
+            // If bearer token auth is forced, return 401
+            if (!Options.ForceBearerTokenAuth) return false;
+            await GenerateUnauthorizedResponseAsync("Invalid bearer token authorization header");
+            return true;
         }
 
         internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
@@ -180,18 +229,24 @@ namespace Owin.Security.Keycloak.Middleware
             }
         }
 
-        private async Task GenerateErrorResponseAsync(HttpStatusCode statusCode,
+        private async Task GenerateUnauthorizedResponseAsync(string errorMessage)
+        {
+            await GenerateErrorResponseAsync(Response, HttpStatusCode.Unauthorized, "Unauthorized", errorMessage);
+        }
+
+        private async Task GenerateErrorResponseAsync(HttpStatusCode statusCode, string reasonPhrase,
             string errorMessage)
         {
-            await GenerateErrorResponseAsync(Response, statusCode, errorMessage);
+            await GenerateErrorResponseAsync(Response, statusCode, reasonPhrase, errorMessage);
         }
 
         private static async Task GenerateErrorResponseAsync(IOwinResponse response, HttpStatusCode statusCode,
-            string errorMessage)
+            string reasonPhrase, string errorMessage)
         {
             // Generate error response
             var task = response.WriteAsync(errorMessage);
             response.StatusCode = (int) statusCode;
+            response.ReasonPhrase = reasonPhrase;
             response.ContentType = "text/plain";
             await task;
         }

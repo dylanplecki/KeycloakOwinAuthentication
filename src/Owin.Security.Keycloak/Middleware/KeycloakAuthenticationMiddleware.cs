@@ -85,7 +85,7 @@ namespace Owin.Security.Keycloak.Middleware
             catch (Exception exception)
             {
                 throw new Exception(
-                    $"Cannot refresh data from the OIDC metadat address '{uriManager.MetadataEndpoint}': Check inner",
+                    $"Cannot refresh data from the OIDC metadata address '{uriManager.MetadataEndpoint}': Check inner",
                     exception);
             }
         }

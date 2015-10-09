@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 
 namespace Owin.Security.Keycloak.Internal.ClaimMapping
@@ -38,15 +39,6 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             },
             new ClaimLookup
             {
-                ClaimName = ClaimTypes.Role,
-                JSelectQuery = "resource_access"
-            }
-        };
-
-        public static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>
-        {
-            new ClaimLookup
-            {
                 ClaimName = Constants.ClaimTypes.SubjectId,
                 JSelectQuery = "sub"
             },
@@ -69,7 +61,18 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             {
                 ClaimName = ClaimTypes.Email,
                 JSelectQuery = "email"
+            },
+            new ClaimLookup
+            {
+                ClaimName = ClaimTypes.Role,
+                JSelectQuery = "resource_access",
+                RequirePropertyId = true
             }
+        };
+
+        public static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>
+        {
+            // No mappings required for Keycloak (yet)
         };
 
         public static IEnumerable<ClaimLookup> RefreshTokenMappings { get; } = new List<ClaimLookup>

@@ -19,7 +19,14 @@ namespace Owin.Security.Keycloak.Models.Responses
             foreach (var item in json)
                 authResult.Add(item.Key, item.Value.ToString());
 
-            Init(authResult);
+            InitFromRequest(authResult);
+        }
+
+        public TokenResponse(JsonWebToken accessToken, JsonWebToken idToken = null, JsonWebToken refreshToken = null)
+        {
+            IdToken = idToken;
+            AccessToken = accessToken;
+            RefreshToken = refreshToken;
         }
 
         public string ExpiresIn { get; private set; }
@@ -29,9 +36,9 @@ namespace Owin.Security.Keycloak.Models.Responses
         public JsonWebToken AccessToken { get; private set; }
         public JsonWebToken RefreshToken { get; private set; }
 
-        protected new void Init(NameValueCollection authResult)
+        protected new void InitFromRequest(NameValueCollection authResult)
         {
-            base.Init(authResult);
+            base.InitFromRequest(authResult);
 
             ExpiresIn = authResult.Get(OpenIdConnectParameterNames.ExpiresIn);
             TokenType = authResult.Get(OpenIdConnectParameterNames.TokenType);
