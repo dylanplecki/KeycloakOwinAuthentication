@@ -31,7 +31,7 @@ namespace Owin.Security.Keycloak.Models.Messages
             var kcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync());
             var properties = stateData[Constants.CacheTypes.AuthenticationProperties] as AuthenticationProperties ??
                              new AuthenticationProperties();
-            return new AuthenticationTicket(await kcIdentity.ValidateIdentity(Options), properties);
+            return new AuthenticationTicket(kcIdentity.ValidateIdentity(Options), properties);
         }
 
         private async Task<string> ExecuteHttpRequestAsync()

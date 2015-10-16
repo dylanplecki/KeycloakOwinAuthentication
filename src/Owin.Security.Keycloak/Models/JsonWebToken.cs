@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IdentityModel.Tokens;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
@@ -65,59 +66,42 @@ namespace Owin.Security.Keycloak.Models
             if (!await RemoteValidateKeycloakAsync(options)) ThrowJwtInvalid();
         }
 
-        public bool ValidateKeycloak(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
-        {
-            var uriManager = OidcDataManager.GetCachedContext(options);
-            return
-                publicKeySet.Keys.Any(
-                    k => Validate(k, options.ClientId, uriManager.GetIssuer(), !options.AllowUnsignedTokens));
-        }
-
         public void ForceValidateKeycloak(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
         {
             if (!ValidateKeycloak(publicKeySet, options)) ThrowJwtInvalid();
         }
 
-        public bool Validate(JsonWebKeySet publicKeySet, string aud = null, string iss = null, bool forceSigned = false)
+        public bool ValidateKeycloak(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
         {
-            return publicKeySet.Keys.Any(k => Validate(k, aud, iss, forceSigned));
+            var uriManager = OidcDataManager.GetCachedContext(options);
+            return Validate(publicKeySet, options.ClientId, uriManager.GetIssuer(), !options.AllowUnsignedTokens);
         }
 
-        public void ForceValidate(JsonWebKeySet publicKeySet, string aud = null, string iss = null,
+        public void ForceValidate(JsonWebKeySet publicKeySet, string audience = null, string issuer = null,
             bool forceSigned = false)
         {
-            if (!Validate(publicKeySet, aud, iss, forceSigned)) ThrowJwtInvalid();
+            if (!Validate(publicKeySet, audience, issuer, forceSigned)) ThrowJwtInvalid();
         }
 
-        public bool Validate(JsonWebKey publicKey, string aud = null, string iss = null, bool forceSigned = false)
+        public bool Validate(JsonWebKeySet publicKeySet, string audience = null, string issuer = null, bool forceSigned = false)
         {
-            var alg = CertSigningHelper.LookupSigningAlgorithm(publicKey.Alg);
-
-            // Check for basic structure compliance
-            // TODO: Convert in-line constants to constants.cs
-            double dExp;
-            JToken jAud, jIss, jExp;
-            if ((aud != null && Payload.TryGetValue("aud", out jAud) && jAud.Type != JTokenType.Null &&
-                 aud != jAud.ToString()) |
-                (iss != null && Payload.TryGetValue("iss", out jIss) && jIss.Type != JTokenType.Null &&
-                 iss != jIss.ToString()) |
-                (Payload.TryGetValue("exp", out jExp) && double.TryParse(jExp.ToString(), out dExp) &&
-                 dExp.ToDateTime() <= DateTime.Now))
+            SecurityToken secToken;
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenValidationParams = new TokenValidationParameters
             {
-                return false;
-            }
+                ValidIssuer = issuer ?? "",
+                ValidAudience = audience ?? "",
+                ValidateIssuer = issuer != null,
+                ValidateAudience = audience != null,
+                ValidateLifetime = true,
+                RequireExpirationTime = true,
+                ValidateIssuerSigningKey = true,
+                RequireSignedTokens = forceSigned,
+                IssuerSigningTokens = publicKeySet.GetSigningTokens(),
+                ClockSkew = new TimeSpan(0, 0, 5) // 5 seconds
+            };
 
-            if (alg == SigningAlgorithm.None) return !forceSigned;
-
-            // Parse JWT for signature part
-            var data = EncodedJwt.Split('.');
-            var signatureData = Guid.NewGuid().ToString(); // Randomize for security
-            if (data.Length > 2) // If JWT has a signature
-                signatureData = data[0] + '.' + data[1];
-            var byteSigData = Encoding.UTF8.GetBytes(signatureData);
-            var byteSignature = Encoding.UTF8.GetBytes(Signature);
-
-            return publicKey.ValidateData(byteSigData, byteSignature, alg);
+            var test = tokenHandler.ValidateToken(EncodedJwt, tokenValidationParams, out secToken);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

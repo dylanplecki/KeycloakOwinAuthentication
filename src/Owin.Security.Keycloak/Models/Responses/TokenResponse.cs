@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json.Linq;
 
@@ -22,7 +23,8 @@ namespace Owin.Security.Keycloak.Models.Responses
             InitFromRequest(authResult);
         }
 
-        public TokenResponse(JsonWebToken accessToken, JsonWebToken idToken = null, JsonWebToken refreshToken = null)
+        public TokenResponse(JwtSecurityToken accessToken, JwtSecurityToken idToken = null,
+            JwtSecurityToken refreshToken = null)
         {
             IdToken = idToken;
             AccessToken = accessToken;
@@ -32,9 +34,9 @@ namespace Owin.Security.Keycloak.Models.Responses
         public string ExpiresIn { get; private set; }
         public string TokenType { get; private set; }
 
-        public JsonWebToken IdToken { get; private set; }
-        public JsonWebToken AccessToken { get; private set; }
-        public JsonWebToken RefreshToken { get; private set; }
+        public JwtSecurityToken IdToken { get; private set; }
+        public JwtSecurityToken AccessToken { get; private set; }
+        public JwtSecurityToken RefreshToken { get; private set; }
 
         protected new void InitFromRequest(NameValueCollection authResult)
         {
@@ -43,9 +45,9 @@ namespace Owin.Security.Keycloak.Models.Responses
             ExpiresIn = authResult.Get(OpenIdConnectParameterNames.ExpiresIn);
             TokenType = authResult.Get(OpenIdConnectParameterNames.TokenType);
 
-            IdToken = new JsonWebToken(authResult.Get(OpenIdConnectParameterNames.IdToken));
-            AccessToken = new JsonWebToken(authResult.Get(OpenIdConnectParameterNames.AccessToken));
-            RefreshToken = new JsonWebToken(authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken));
+            IdToken = new JwtSecurityToken(authResult.Get(OpenIdConnectParameterNames.IdToken));
+            AccessToken = new JwtSecurityToken(authResult.Get(OpenIdConnectParameterNames.AccessToken));
+            RefreshToken = new JwtSecurityToken(authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken));
         }
     }
 }

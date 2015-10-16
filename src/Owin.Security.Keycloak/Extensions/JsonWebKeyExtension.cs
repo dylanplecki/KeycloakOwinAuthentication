@@ -1,5 +1,4 @@
-﻿using System;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Protocols;
 using Owin.Security.Keycloak.Utilities;
@@ -11,8 +10,6 @@ namespace Owin.Security.Keycloak
         public static bool ValidateData(this JsonWebKey webKey, byte[] data, byte[] signature,
             SigningAlgorithm forcedAlg = SigningAlgorithm.None)
         {
-            return true; // TODO: remove debug code
-
             var alg = CertSigningHelper.LookupSigningAlgorithm(webKey.Alg);
             if (forcedAlg != SigningAlgorithm.None && alg != forcedAlg) return false;
 

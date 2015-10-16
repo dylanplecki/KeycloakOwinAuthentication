@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel;
+using System.IdentityModel.Tokens;
 using System.Linq;
 using System.Net;
 using System.Security.Authentication;
@@ -66,9 +67,9 @@ namespace Owin.Security.Keycloak.Middleware
                     {
                         try
                         {
-                            var authResponse = new TokenResponse(new JsonWebToken(bearerAuthArr[1]));
+                            var authResponse = new TokenResponse(new JwtSecurityToken(bearerAuthArr[1]));
                             var kcIdentity = new KeycloakIdentity(authResponse);
-                            var identity = await kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
+                            var identity = kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
                             Context.Authentication.User = new ClaimsPrincipal(identity);
                             return false;
                         }
@@ -209,8 +210,7 @@ namespace Owin.Security.Keycloak.Middleware
                     }
 
                     var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
-                    var claims = await message.ExecuteAsync();
-                    var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
+                    var identity = await message.ExecuteAsync();
                     context.ReplaceIdentity(identity);
                     // TODO: Fix cookie not being sent
                 }
