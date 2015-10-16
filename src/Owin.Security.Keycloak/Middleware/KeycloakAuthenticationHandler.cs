@@ -22,8 +22,10 @@ namespace Owin.Security.Keycloak.Middleware
     {
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
+            // Get and refresh context-based OIDC manager
+            var uriManager = OidcDataManager.GetCachedContext(Options);
+
             // Check for valid callback URI
-            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
@@ -50,6 +52,9 @@ namespace Owin.Security.Keycloak.Middleware
 
         public override async Task<bool> InvokeAsync()
         {
+            // Validate and refresh context-based OIDC manager for the current request
+            await OidcDataManager.ValidateCachedContextAsync(Options);
+
             // Bearer token authentication override
             if (Options.EnableBearerTokenAuth)
             {
@@ -74,7 +79,7 @@ namespace Owin.Security.Keycloak.Middleware
                     }
                 }
 
-                // If bearer token auth is forced, let app return 401
+                // If bearer token auth is forced, skip standard auth
                 if (Options.ForceBearerTokenAuth) return false;
             }
 
@@ -113,7 +118,14 @@ namespace Owin.Security.Keycloak.Middleware
         {
             if (Response.StatusCode == 401)
             {
-                if (Options.ForceBearerTokenAuth) return;
+                // If bearer token auth is forced, keep returned 401
+                if (Options.ForceBearerTokenAuth)
+                {
+                    await
+                        GenerateUnauthorizedResponseAsync(
+                            "Access Unauthorized: Requires valid bearer token authorization header");
+                    return;
+                }
 
                 var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
                 if (challenge == null) return;
@@ -139,7 +151,7 @@ namespace Owin.Security.Keycloak.Middleware
             var state = Global.StateCache.CreateState(stateData);
 
             // Generate login URI and data
-            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
@@ -151,7 +163,7 @@ namespace Owin.Security.Keycloak.Middleware
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
             // Generate logout URI and data
-            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 

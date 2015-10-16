@@ -25,13 +25,17 @@ namespace Owin.Security.Keycloak.Internal
 
         public async Task<ClaimsIdentity> ValidateIdentity(KeycloakAuthenticationOptions options, string authenticationType = null)
         {
-            var uriManager = await OidcDataManager.GetCachedContextAsync(options);
+            var uriManager = OidcDataManager.GetCachedContext(options);
             var signingKeys = uriManager.GetJsonWebKeys();
 
             // Validate all of the JWTs provided
-            _keycloakToken.IdToken?.ForceValidate(signingKeys, options);
-            _keycloakToken.AccessToken?.ForceValidate(signingKeys, options);
-            _keycloakToken.RefreshToken?.ForceValidate(signingKeys, options);
+            _keycloakToken.IdToken?.ForceValidateKeycloak(signingKeys, options);
+            _keycloakToken.RefreshToken?.ForceValidateKeycloak(signingKeys, options);
+
+            if (options.UseRemoteTokenValidation && _keycloakToken.AccessToken != null)
+                await _keycloakToken.AccessToken.ForceRemoteValidateKeycloakAsync(options);
+            else
+                _keycloakToken.AccessToken?.ForceValidateKeycloak(signingKeys, options);
 
             // Create the new claims identity
             return new ClaimsIdentity(GenerateJwtClaims(options), authenticationType ?? options.SignInAsAuthenticationType);

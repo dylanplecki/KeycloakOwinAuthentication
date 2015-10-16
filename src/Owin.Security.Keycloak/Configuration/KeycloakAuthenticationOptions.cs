@@ -69,15 +69,7 @@ namespace Owin.Security.Keycloak
         public string IdentityProvider { get; set; }
 
         /// <summary>
-        /// OPTIONAL: Automatically refresh user tokens upon expiration
-        /// </summary>
-        /// <remarks>
-        ///   - Default: True
-        /// </remarks>
-        public bool AutoTokenRefresh { get; set; } = true;
-
-        /// <summary>
-        /// OPTIONAL: Save access and ID tokens as user claims
+        /// OPTIONAL.ADV: Save access and ID tokens as user claims
         /// </summary>
         /// <remarks>
         ///   - Forced enabled when using 'AutoTokenRefresh'
@@ -86,7 +78,7 @@ namespace Owin.Security.Keycloak
         public bool SaveTokensAsClaims { get; set; } = true;
 
         /// <summary>
-        /// OPTIONAL: Allow authentication via the bearer token authorization header
+        /// OPTIONAL.ADV: Allow authentication via the bearer token authorization header
         /// </summary>
         /// <remarks>
         ///   - Forced enabled when using 'ForceBearerTokenAuth'
@@ -95,7 +87,7 @@ namespace Owin.Security.Keycloak
         public bool EnableBearerTokenAuth { get; set; } = false;
 
         /// <summary>
-        /// OPTIONAL: Force all authentication to be done via 'BearerTokenAuth' (above)
+        /// OPTIONAL.ADV: Force all authentication to be done via 'BearerTokenAuth' (above)
         /// </summary>
         /// <remarks>
         ///   - If an inbound request does not present a valid bearer token,
@@ -105,22 +97,42 @@ namespace Owin.Security.Keycloak
         public bool ForceBearerTokenAuth { get; set; } = false;
 
         /// <summary>
-        /// OPTIONAL: Whether to allow the extension to accept unsigned tokens
+        /// OPTIONAL.ADV: Automatically refresh user tokens upon expiration
         /// </summary>
         /// <remarks>
-        ///   - If enabled, this will create a security hole
+        ///   - Default: True
+        /// </remarks>
+        public bool AutoTokenRefresh { get; set; } = true;
+
+        /// <summary>
+        /// OPTIONAL.ADV: Whether to allow the extension to accept unsigned tokens
+        /// </summary>
+        /// <remarks>
+        ///   - If enabled, this will create a MASSIVE security hole
         ///   - Default: False
         /// </remarks>
         public bool AllowUnsignedTokens { get; set; } = false;
 
         /// <summary>
-        /// OPTIONAL: The interval in seconds for the OIDC metadata to refresh
+        /// OPTIONAL.ADV: Whether to enable token validation via the Keycloak server
         /// </summary>
         /// <remarks>
-        ///   - User -1 for no refreshing, and 0 for always refresh
-        ///   - Default: 300 seconds (5 minutes)
+        ///   - Enabling this option will require an HTTP call to the Keycloak server
+        ///     on every request with a bearer token, or when new tokens are requested
+        ///   - Enabling this option will also allow changes on the Keycloak server to
+        ///     be seen by the end user immediately, ie. assigning a new role to a user
+        ///   - Default: false
         /// </remarks>
-        public int MetadataRefreshInterval { get; set; } = 300;
+        public bool UseRemoteTokenValidation { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL.ADV: The interval in seconds for the OIDC metadata to refresh
+        /// </summary>
+        /// <remarks>
+        ///   - User -1 for no refreshing, and 0 to always refresh
+        ///   - Default: 3600 seconds (60 minutes)
+        /// </remarks>
+        public int MetadataRefreshInterval { get; set; } = 3600;
 
         public string CallbackPath { get; set; }
         public string ResponseType { get; set; }

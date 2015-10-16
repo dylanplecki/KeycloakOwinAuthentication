@@ -19,8 +19,9 @@ namespace Owin.Security.Keycloak.Internal
         private readonly KeycloakAuthenticationOptions _options;
         private DateTime _nextCachedRefreshTime;
 
-        public readonly string Authority;
-        public readonly Uri MetadataEndpoint;
+        public string Authority { get; }
+        public Uri MetadataEndpoint { get; }
+        public Uri TokenValidationEndpoint { get; }
 
         private OidcDataManager(KeycloakAuthenticationOptions options)
         {
@@ -29,6 +30,7 @@ namespace Owin.Security.Keycloak.Internal
 
             Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
             MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
+            TokenValidationEndpoint = new Uri(Authority + "/tokens/validate");
         }
 
         private class Metadata
@@ -48,20 +50,22 @@ namespace Owin.Security.Keycloak.Internal
         #region Context Caching
 
         // TODO: Check for multithreading memory contention scenarios
-        public static async Task<OidcDataManager> GetCachedContextAsync(KeycloakAuthenticationOptions options)
+        public static async Task ValidateCachedContextAsync(KeycloakAuthenticationOptions options)
         {
             var context = GetCachedContext(options);
             if (context == null) // Create a new context if required
-                context = await CreateCachedContextAsync(options);
+                await CreateCachedContextAsync(options);
             else if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
                 await context.TryRefreshMetadataAsync();
-
-            return context;
         }
-        
+
+        // TODO: Check for multithreading memory contention scenarios
         public static OidcDataManager GetCachedContext(KeycloakAuthenticationOptions options)
         {
-            return HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
+            var context = HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
+            if (context == null)
+                throw new Exception($"Could not find OIDC data manager for module '{options.AuthenticationType}'");
+            return context;
         }
 
         // TODO: Check for multithreading memory contention scenarios

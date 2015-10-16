@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Linq;
-using System.Security.Cryptography;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json.Linq;
 using Owin.Security.Keycloak.Internal;
@@ -27,12 +29,12 @@ namespace Owin.Security.Keycloak.Models
                     throw new Exception("JWebToken: Invalid JWT length");
 
                 // Parse header
-                var header = JObject.Parse(DecodeData(encodedData[0]));
+                var header = JObject.Parse(CertSigningHelper.DecodeBase64Data(encodedData[0]));
                 Algorithm = CertSigningHelper.LookupSigningAlgorithm(header["alg"].ToString());
 
                 // Store JWT properties
-                Payload = JObject.Parse(DecodeData(encodedData[1]));
-                Signature = (encodedData.Length > 2) ? DecodeUrl(encodedData[2]) : "";
+                Payload = JObject.Parse(CertSigningHelper.DecodeBase64Data(encodedData[1]));
+                Signature = (encodedData.Length > 2) ? CertSigningHelper.DecodeBase64UrlData(encodedData[2]) : "";
             }
             catch (Exception e)
             {
@@ -40,7 +42,30 @@ namespace Owin.Security.Keycloak.Models
             }
         }
 
-        public bool Validate(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
+        public async Task<bool> RemoteValidateKeycloakAsync(KeycloakAuthenticationOptions options)
+        {
+            // This should really only be used on access tokens...
+            var uriManager = OidcDataManager.GetCachedContext(options);
+            var uri = new Uri(uriManager.TokenValidationEndpoint, "?access_token=" + EncodedJwt);
+            try
+            {
+                var client = new HttpClient();
+                var response = await client.GetAsync(uri);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception)
+            {
+                // TODO: Some kind of exception logging
+                return false;
+            }
+        }
+
+        public async Task ForceRemoteValidateKeycloakAsync(KeycloakAuthenticationOptions options)
+        {
+            if (!await RemoteValidateKeycloakAsync(options)) ThrowJwtInvalid();
+        }
+
+        public bool ValidateKeycloak(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
         {
             var uriManager = OidcDataManager.GetCachedContext(options);
             return
@@ -48,10 +73,9 @@ namespace Owin.Security.Keycloak.Models
                     k => Validate(k, options.ClientId, uriManager.GetIssuer(), !options.AllowUnsignedTokens));
         }
 
-        public void ForceValidate(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
+        public void ForceValidateKeycloak(JsonWebKeySet publicKeySet, KeycloakAuthenticationOptions options)
         {
-            if (!Validate(publicKeySet, options))
-                throw new Exception("JWT signature was unable to be validated");
+            if (!ValidateKeycloak(publicKeySet, options)) ThrowJwtInvalid();
         }
 
         public bool Validate(JsonWebKeySet publicKeySet, string aud = null, string iss = null, bool forceSigned = false)
@@ -62,8 +86,7 @@ namespace Owin.Security.Keycloak.Models
         public void ForceValidate(JsonWebKeySet publicKeySet, string aud = null, string iss = null,
             bool forceSigned = false)
         {
-            if (!Validate(publicKeySet, aud, iss, forceSigned))
-                throw new Exception("JWT signature was unable to be validated");
+            if (!Validate(publicKeySet, aud, iss, forceSigned)) ThrowJwtInvalid();
         }
 
         public bool Validate(JsonWebKey publicKey, string aud = null, string iss = null, bool forceSigned = false)
@@ -84,7 +107,7 @@ namespace Owin.Security.Keycloak.Models
                 return false;
             }
 
-            return true; // TODO: Remove debug code
+            if (alg == SigningAlgorithm.None) return !forceSigned;
 
             // Parse JWT for signature part
             var data = EncodedJwt.Split('.');
@@ -94,34 +117,13 @@ namespace Owin.Security.Keycloak.Models
             var byteSigData = Encoding.UTF8.GetBytes(signatureData);
             var byteSignature = Encoding.UTF8.GetBytes(Signature);
 
-            switch (alg)
-            {
-                // TODO: Implement all signing algorithms
-                case SigningAlgorithm.Rs256:
-                    using (var rsa = new RSACryptoServiceProvider())
-                    {
-                        return rsa.VerifyData(byteSigData, "SHA256", byteSignature);
-                    }
-                case SigningAlgorithm.Hs256:
-                    return false; // TODO: Validate via HS256
-                case SigningAlgorithm.None:
-                    return !forceSigned;
-                default:
-                    return false;
-            }
+            return publicKey.ValidateData(byteSigData, byteSignature, alg);
         }
 
-        private static string DecodeData(string encodedData)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ThrowJwtInvalid()
         {
-            return
-                Encoding.UTF8.GetString(
-                    Convert.FromBase64String(encodedData.PadRight(encodedData.Length + (4 - encodedData.Length%4)%4, '=')));
-        }
-
-        // From JWT Specification
-        public static string DecodeUrl(string encodedUrl)
-        {
-            return DecodeData(encodedUrl.Replace('-', '+').Replace('_', '/'));
+            throw new Exception("JWT signature was unable to be validated");
         }
     }
 }
