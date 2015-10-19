@@ -1,4 +1,5 @@
-﻿using Microsoft.Owin.Security;
+﻿using System;
+using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 
 namespace Owin.Security.Keycloak
@@ -69,6 +70,17 @@ namespace Owin.Security.Keycloak
         public string IdentityProvider { get; set; }
 
         /// <summary>
+        /// OPTIONAL: Whether to use the Web API authentication mode via bearer tokens
+        ///           in the authentication header instead of interactive logins
+        /// </summary>
+        /// <remarks>
+        ///   - This will auto-enable 'EnableBearerTokenAuth' and 'ForceBearerTokenAuth',
+        ///     both of which cannot be switched off in this mode
+        ///   - Default: False
+        /// </remarks>
+        public bool EnableWebApiMode { get; set; } = false;
+
+        /// <summary>
         /// OPTIONAL.ADV: Save access and ID tokens as user claims
         /// </summary>
         /// <remarks>
@@ -105,6 +117,15 @@ namespace Owin.Security.Keycloak
         public bool AutoTokenRefresh { get; set; } = true;
 
         /// <summary>
+        /// OPTIONAL.ADV: Whether to check for valid token signatures before accepting
+        /// </summary>
+        /// <remarks>
+        ///   - If enabled, this will create a MASSIVE security hole
+        ///   - Default: False
+        /// </remarks>
+        public bool DisableTokenSignatureValidation { get; set; } = false;
+
+        /// <summary>
         /// OPTIONAL.ADV: Whether to allow the extension to accept unsigned tokens
         /// </summary>
         /// <remarks>
@@ -112,6 +133,30 @@ namespace Owin.Security.Keycloak
         ///   - Default: False
         /// </remarks>
         public bool AllowUnsignedTokens { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL.ADV: Whether to disable the validation of the issuer of any returned token
+        /// </summary>
+        /// <remarks>
+        ///   - Default: False
+        /// </remarks>
+        public bool DisableIssuerValidation { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL.ADV: Whether to disable the validation of the audience (app) of any returned token
+        /// </summary>
+        /// <remarks>
+        ///   - Default: False
+        /// </remarks>
+        public bool DisableAudienceValidation { get; set; } = false;
+
+        /// <summary>
+        /// OPTIONAL.ADV: The maximum grace time span for expired tokens to be accepted
+        /// </summary>
+        /// <remarks>
+        ///   - Default: 5 seconds
+        /// </remarks>
+        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(5);
 
         /// <summary>
         /// OPTIONAL.ADV: Whether to enable token validation via the Keycloak server

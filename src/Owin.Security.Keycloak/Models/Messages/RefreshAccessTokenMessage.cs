@@ -22,7 +22,7 @@ namespace Owin.Security.Keycloak.Models.Messages
         public override async Task<ClaimsIdentity> ExecuteAsync()
         {
             var newKcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync(RefreshToken));
-            return newKcIdentity.ValidateIdentity(Options);
+            return await newKcIdentity.ValidateIdentity(Options);
         }
 
         private async Task<string> ExecuteHttpRequestAsync(string refreshToken)

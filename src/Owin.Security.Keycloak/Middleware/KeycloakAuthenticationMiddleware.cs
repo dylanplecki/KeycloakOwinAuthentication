@@ -50,6 +50,14 @@ namespace Owin.Security.Keycloak.Middleware
             if (string.IsNullOrWhiteSpace(Options.SignInAsAuthenticationType))
                 Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
 
+            // Switch composite options
+
+            if (Options.EnableWebApiMode)
+            {
+                Options.EnableBearerTokenAuth = true;
+                Options.ForceBearerTokenAuth = true;
+            }
+
             // Validate options
 
             if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)

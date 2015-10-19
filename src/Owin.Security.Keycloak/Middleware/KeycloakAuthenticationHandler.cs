@@ -13,7 +13,6 @@ using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Models;
 using Owin.Security.Keycloak.Models.Messages;
 using Owin.Security.Keycloak.Models.Responses;
 
@@ -67,9 +66,9 @@ namespace Owin.Security.Keycloak.Middleware
                     {
                         try
                         {
-                            var authResponse = new TokenResponse(new JwtSecurityToken(bearerAuthArr[1]));
+                            var authResponse = new TokenResponse(bearerAuthArr[1], null, null);
                             var kcIdentity = new KeycloakIdentity(authResponse);
-                            var identity = kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
+                            var identity = await kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
                             Context.Authentication.User = new ClaimsPrincipal(identity);
                             return false;
                         }

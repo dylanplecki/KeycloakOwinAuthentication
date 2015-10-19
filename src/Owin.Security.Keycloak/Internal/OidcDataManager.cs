@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Caching;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -15,9 +16,13 @@ namespace Owin.Security.Keycloak.Internal
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
+        private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
         private readonly Metadata _metadata = new Metadata();
         private readonly KeycloakAuthenticationOptions _options;
         private DateTime _nextCachedRefreshTime;
+
+        // Thread-safe pipeline locks
+        private bool _cacheRefreshing;
 
         public string Authority { get; }
         public Uri MetadataEndpoint { get; }
@@ -52,20 +57,59 @@ namespace Owin.Security.Keycloak.Internal
         // TODO: Check for multithreading memory contention scenarios
         public static async Task ValidateCachedContextAsync(KeycloakAuthenticationOptions options)
         {
+            //var context = GetCachedContextSafe(options.AuthenticationType);
             var context = GetCachedContext(options);
-            if (context == null) // Create a new context if required
-                await CreateCachedContextAsync(options);
-            else if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
+
+            // Check if context needs to be created
+            if (context == null)
+            {
+                // Thread-safe code check
+                using (new WriterGuard(CacheLock))
+                {
+                    // Double-check context after writer acquire
+                    context = GetCachedContextSafe(options.AuthenticationType);
+                    if (context == null)
+                    {
+                        // TODO: Create context
+                    }
+                }
+            }
+
+            // Thread-safe code check
+            using (var guard = new UpgradeableGuard(context._refreshLock))
+            {
+                if (context._cacheRefreshing) return;
+                guard.UpgradeToWriterLock();
+                if (context._cacheRefreshing) return; // Double-check after acquire
+                context._cacheRefreshing = true;
+            }
+
+            if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
                 await context.TryRefreshMetadataAsync();
+
+            // Thread-safe code check
+            using (new WriterGuard(context._refreshLock))
+            {
+                context._cacheRefreshing = false;
+            }
         }
 
-        // TODO: Check for multithreading memory contention scenarios
         public static OidcDataManager GetCachedContext(KeycloakAuthenticationOptions options)
         {
-            var context = HttpRuntime.Cache.Get(options.AuthenticationType + CachedContextPostfix) as OidcDataManager;
+            return GetCachedContext(options.AuthenticationType);
+        }
+
+        public static OidcDataManager GetCachedContext(string authType)
+        {
+            var context = GetCachedContextSafe(authType);
             if (context == null)
-                throw new Exception($"Could not find OIDC data manager for module '{options.AuthenticationType}'");
+                throw new Exception($"Could not find cached OIDC data manager for module '{authType}'");
             return context;
+        }
+
+        private static OidcDataManager GetCachedContextSafe(string authType)
+        {
+            return HttpRuntime.Cache.Get(authType + CachedContextPostfix) as OidcDataManager;
         }
 
         // TODO: Check for multithreading memory contention scenarios
@@ -74,7 +118,8 @@ namespace Owin.Security.Keycloak.Internal
         {
             var cachedContext = new OidcDataManager(options);
             if (preload) await cachedContext.RefreshMetadataAsync();
-            HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
+            HttpRuntime.Cache.Insert(options.AuthenticationType + CachedContextPostfix, cachedContext, null,
+                Cache.NoAbsoluteExpiration, Cache.NoSlidingExpiration);
             return cachedContext;
         }
 

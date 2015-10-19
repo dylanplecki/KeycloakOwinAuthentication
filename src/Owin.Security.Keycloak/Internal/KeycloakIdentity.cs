@@ -1,8 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IdentityModel.Tokens;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using Owin.Security.Keycloak.Internal.ClaimMapping;
 using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Internal
@@ -21,95 +24,75 @@ namespace Owin.Security.Keycloak.Internal
             _keycloakToken = tokenResponse;
         }
 
-        public ClaimsIdentity ValidateIdentity(KeycloakAuthenticationOptions options, string authenticationType = null)
+        public async Task<ClaimsIdentity> ValidateIdentity(KeycloakAuthenticationOptions options,
+            string authenticationType = null)
         {
-            var uriManager = OidcDataManager.GetCachedContext(options);
-
-            // Prepare JWT validation parameters
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                RequireSignedTokens = true,
-                RequireExpirationTime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = uriManager.GetIssuer(),
-                ClockSkew = TimeSpan.FromSeconds(5), // 5 seconds
-                ValidAudiences = new List<string> {"null", options.ClientId},
-                IssuerSigningTokens = uriManager.GetJsonWebKeys().GetSigningTokens(),
-                AuthenticationType = authenticationType ?? options.SignInAsAuthenticationType
-            };
-
             // Validate JWTs provided
-            SecurityToken securityToken;
-            tokenHandler.ValidateToken(_keycloakToken.RefreshToken.RawData,
-                tokenValidationParameters, out securityToken);
-            //if (_keycloakToken.IdToken != null &&
-            //    tokenHandler.ValidateToken(_keycloakToken.IdToken.RawData, tokenValidationParameters))
-            //    throw new SecurityTokenException("Invalid OpenID Connect ID-JWT");
+            SecurityToken idToken = null, refreshToken = null, accessToken = null;
+            var tokenHandler = new KeycloakTokenHandler();
+            if (_keycloakToken.IdToken != null)
+                idToken = tokenHandler.ValidateToken(_keycloakToken.IdToken, options);
+            if (_keycloakToken.RefreshToken != null)
+                refreshToken = tokenHandler.ValidateToken(_keycloakToken.RefreshToken, options);
+            if (_keycloakToken.AccessToken != null)
+            {
+                if (options.UseRemoteTokenValidation)
+                    accessToken = await KeycloakTokenHandler.ValidateTokenRemote(_keycloakToken.AccessToken, options);
+                else
+                    accessToken = tokenHandler.ValidateToken(_keycloakToken.AccessToken, options);
+            }
 
-            // Generate claims principle from validated access token
-            var claimsPrinciple = tokenHandler.ValidateToken(_keycloakToken.AccessToken.RawData,
-                tokenValidationParameters, out securityToken);
-            var identity = claimsPrinciple.Identities.FirstOrDefault();
-            if (identity == null) throw new SecurityTokenException("Invalid identity returned from JWT");
-            return identity;
-
-            //_keycloakToken.IdToken?.ForceValidateKeycloak(signingKeys, options);
-            //_keycloakToken.RefreshToken?.ForceValidateKeycloak(signingKeys, options);
-
-            //if (options.UseRemoteTokenValidation && _keycloakToken.AccessToken != null)
-            //    await _keycloakToken.AccessToken.ForceRemoteValidateKeycloakAsync(options);
-            //else
-            //    _keycloakToken.AccessToken?.ForceValidateKeycloak(signingKeys, options);
-
-            //// Create the new claims identity
-            //return new ClaimsIdentity(GenerateJwtClaims(options),
-            //    authenticationType ?? options.SignInAsAuthenticationType);
+            // Create the new claims identity
+            return // TODO: Convert to MS claims parsing in token handler
+                new ClaimsIdentity(
+                    GenerateJwtClaims(accessToken as JwtSecurityToken, idToken as JwtSecurityToken,
+                        refreshToken as JwtSecurityToken, options),
+                    authenticationType ?? options.SignInAsAuthenticationType);
         }
 
-        //public IEnumerable<Claim> GenerateJwtClaims(KeycloakAuthenticationOptions options)
-        //{
-        //    // Add generic claims
-        //    yield return new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType);
-        //    yield return new Claim(Constants.ClaimTypes.Version, Global.GetVersion());
+        protected IEnumerable<Claim> GenerateJwtClaims(JwtSecurityToken accessToken, JwtSecurityToken idToken,
+            JwtSecurityToken refreshToken, KeycloakAuthenticationOptions options)
+        {
+            // Add generic claims
+            yield return new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType);
+            yield return new Claim(Constants.ClaimTypes.Version, Global.GetVersion());
 
-        //    // Save the recieved tokens as claims
-        //    if (options.SaveTokensAsClaims)
-        //    {
-        //        if (_keycloakToken.IdToken != null)
-        //            yield return new Claim(Constants.ClaimTypes.IdToken, _keycloakToken.IdToken.RawData);
-        //        if (_keycloakToken.AccessToken != null)
-        //            yield return new Claim(Constants.ClaimTypes.AccessToken, _keycloakToken.AccessToken.RawData);
-        //        if (_keycloakToken.RefreshToken != null)
-        //            yield return new Claim(Constants.ClaimTypes.RefreshToken, _keycloakToken.RefreshToken.RawData);
-        //    }
+            // Save the recieved tokens as claims
+            if (options.SaveTokensAsClaims)
+            {
+                if (_keycloakToken.IdToken != null)
+                    yield return new Claim(Constants.ClaimTypes.IdToken, _keycloakToken.IdToken);
+                if (_keycloakToken.AccessToken != null)
+                    yield return new Claim(Constants.ClaimTypes.AccessToken, _keycloakToken.AccessToken);
+                if (_keycloakToken.RefreshToken != null)
+                    yield return new Claim(Constants.ClaimTypes.RefreshToken, _keycloakToken.RefreshToken);
+            }
 
-        //    // Add OIDC token claims
-        //    var jsonId = options.ClientId;
-        //    if (_keycloakToken.IdToken != null)
-        //        foreach (var claim in ProcessOidcToken(_keycloakToken.IdToken, ClaimMappings.IdTokenMappings, jsonId))
-        //            yield return claim;
-        //    if (_keycloakToken.AccessToken != null)
-        //        foreach (
-        //            var claim in ProcessOidcToken(_keycloakToken.AccessToken, ClaimMappings.AccessTokenMappings, jsonId)
-        //            )
-        //            yield return claim;
-        //    if (_keycloakToken.RefreshToken != null)
-        //        foreach (
-        //            var claim in
-        //                ProcessOidcToken(_keycloakToken.RefreshToken, ClaimMappings.RefreshTokenMappings, jsonId))
-        //            yield return claim;
-        //}
+            // Add OIDC token claims
+            var jsonId = options.ClientId;
+            if (_keycloakToken.IdToken != null)
+                foreach (
+                    var claim in ProcessOidcToken(idToken.GetPayloadJObject(), ClaimMappings.IdTokenMappings, jsonId))
+                    yield return claim;
+            if (_keycloakToken.AccessToken != null)
+                foreach (
+                    var claim in
+                        ProcessOidcToken(accessToken.GetPayloadJObject(), ClaimMappings.AccessTokenMappings, jsonId)
+                    )
+                    yield return claim;
+            if (_keycloakToken.RefreshToken != null)
+                foreach (
+                    var claim in
+                        ProcessOidcToken(refreshToken.GetPayloadJObject(), ClaimMappings.RefreshTokenMappings, jsonId))
+                    yield return claim;
+        }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //private static IEnumerable<Claim> ProcessOidcToken(JwtSecurityToken webToken,
-        //    IEnumerable<ClaimLookup> claimMappings, string jsonId)
-        //{
-        //    // Process claim mappings
-        //    return claimMappings.SelectMany(lookupClaim => lookupClaim.ProcessClaimLookup(webToken.Payload, jsonId));
-        //}
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static IEnumerable<Claim> ProcessOidcToken(JObject webToken, IEnumerable<ClaimLookup> claimMappings,
+            string jsonId)
+        {
+            // Process claim mappings
+            return claimMappings.SelectMany(lookupClaim => lookupClaim.ProcessClaimLookup(webToken, jsonId));
+        }
     }
 }

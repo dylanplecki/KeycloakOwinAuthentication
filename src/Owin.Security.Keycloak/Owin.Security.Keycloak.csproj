@@ -93,12 +93,12 @@
     <Compile Include="Extensions\AppBuilderExtension.cs" />
     <Compile Include="Extensions\DateTimeExtension.cs" />
     <Compile Include="Extensions\HttpClientExtension.cs" />
-    <Compile Include="Extensions\JwtSecurityTokenHandlerExtension.cs" />
+    <Compile Include="Extensions\JwtSecurityTokenExtension.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="Internal\KeycloakIdentity.cs" />
+    <Compile Include="Internal\KeycloakTokenHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
-    <Compile Include="Utilities\CertSigningHelper.cs" />
     <Compile Include="Models\Responses\AuthorizationResponse.cs" />
     <Compile Include="Models\Messages\GenericMessage.cs" />
     <Compile Include="Models\Messages\RefreshAccessTokenMessage.cs" />

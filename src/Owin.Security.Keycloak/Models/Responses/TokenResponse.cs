@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json.Linq;
 
@@ -23,8 +22,7 @@ namespace Owin.Security.Keycloak.Models.Responses
             InitFromRequest(authResult);
         }
 
-        public TokenResponse(JwtSecurityToken accessToken, JwtSecurityToken idToken = null,
-            JwtSecurityToken refreshToken = null)
+        public TokenResponse(string accessToken, string idToken, string refreshToken)
         {
             IdToken = idToken;
             AccessToken = accessToken;
@@ -34,9 +32,9 @@ namespace Owin.Security.Keycloak.Models.Responses
         public string ExpiresIn { get; private set; }
         public string TokenType { get; private set; }
 
-        public JwtSecurityToken IdToken { get; private set; }
-        public JwtSecurityToken AccessToken { get; private set; }
-        public JwtSecurityToken RefreshToken { get; private set; }
+        public string IdToken { get; private set; }
+        public string AccessToken { get; private set; }
+        public string RefreshToken { get; private set; }
 
         protected new void InitFromRequest(NameValueCollection authResult)
         {
@@ -45,9 +43,9 @@ namespace Owin.Security.Keycloak.Models.Responses
             ExpiresIn = authResult.Get(OpenIdConnectParameterNames.ExpiresIn);
             TokenType = authResult.Get(OpenIdConnectParameterNames.TokenType);
 
-            IdToken = new JwtSecurityToken(authResult.Get(OpenIdConnectParameterNames.IdToken));
-            AccessToken = new JwtSecurityToken(authResult.Get(OpenIdConnectParameterNames.AccessToken));
-            RefreshToken = new JwtSecurityToken(authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken));
+            IdToken = authResult.Get(OpenIdConnectParameterNames.IdToken);
+            AccessToken = authResult.Get(OpenIdConnectParameterNames.AccessToken);
+            RefreshToken = authResult.Get(Constants.OpenIdConnectParameterNames.RefreshToken);
         }
     }
 }
