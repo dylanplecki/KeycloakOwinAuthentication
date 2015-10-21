@@ -63,7 +63,8 @@ namespace Owin.Security.Keycloak.Internal
             return ValidateToken(jwt, tokenValidationParameters);
         }
 
-        public bool TryValidateToken(string securityToken, TokenValidationParameters validationParameters, out SecurityToken rToken)
+        public bool TryValidateToken(string securityToken, TokenValidationParameters validationParameters,
+            out SecurityToken rToken)
         {
             try
             {

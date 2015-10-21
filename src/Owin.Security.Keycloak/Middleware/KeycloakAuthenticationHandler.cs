@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel;
-using System.IdentityModel.Tokens;
 using System.Linq;
 using System.Net;
 using System.Security.Authentication;
@@ -10,7 +9,6 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
-using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Internal;
 using Owin.Security.Keycloak.Models.Messages;
@@ -55,6 +53,10 @@ namespace Owin.Security.Keycloak.Middleware
             // Validate and refresh context-based OIDC manager for the current request
             await OidcDataManager.ValidateCachedContextAsync(Options);
 
+            // Check SignInAs identity for authentication update
+            if (Context.Authentication.User.Identity.IsAuthenticated)
+                await ValidateSignInAsIdentity();
+
             // Bearer token authentication override
             if (Options.EnableBearerTokenAuth)
             {
@@ -89,7 +91,22 @@ namespace Owin.Security.Keycloak.Middleware
 
             if (ticket.Identity != null)
             {
-                Context.Authentication.SignIn(ticket.Properties, ticket.Identity);
+                // Parse expiration date-time
+                DateTime expDate;
+                var expTimestamp =
+                    ticket.Identity.Claims.FirstOrDefault(c => c.Type == Constants.ClaimTypes.RefreshTokenExpiration);
+
+                if (expTimestamp != null && DateTime.TryParse(expTimestamp.Value, out expDate))
+                    expDate = expDate.Add(Options.TokenClockSkew);
+                else
+                    expDate = DateTime.Now.AddHours(2); // Fallback
+
+                Context.Authentication.SignIn(new AuthenticationProperties
+                {
+                    AllowRefresh = true,
+                    IsPersistent = true,
+                    ExpiresUtc = expDate
+                }, ticket.Identity);
             }
 
             // Redirect back to the original secured resource, if any
@@ -172,14 +189,14 @@ namespace Owin.Security.Keycloak.Middleware
             Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
         }
 
-        internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
+        internal async Task ValidateSignInAsIdentity()
         {
-            if (context == null) throw new ArgumentNullException();
-            if (context.Identity == null || !context.Identity.IsAuthenticated) return;
+            var origIdentity = Context.Authentication.User.Identities.FirstOrDefault();
+            if (origIdentity == null) return;
 
             try
             {
-                var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
+                var claimLookup = origIdentity.Claims.ToLookup(c => c.Type, c => c.Value);
 
                 var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
                 var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
@@ -189,11 +206,11 @@ namespace Owin.Security.Keycloak.Middleware
                     claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
                 var refreshTokenExpiration =
                     claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
+                var refreshTokenExpDate = DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture);
 
                 // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
                 if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null ||
-                    DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now ||
+                    refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now ||
                     !Global.CheckVersion(version))
                 {
                     throw new AuthenticationException();
@@ -208,20 +225,24 @@ namespace Owin.Security.Keycloak.Middleware
                         throw new AuthenticationException();
                     }
 
-                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
+                    var message = new RefreshAccessTokenMessage(Context.Request, options, refreshToken);
                     var identity = await message.ExecuteAsync();
-                    context.ReplaceIdentity(identity);
-                    // TODO: Fix cookie not being sent
+                    Context.Authentication.SignIn(
+                        new AuthenticationProperties
+                        {
+                            AllowRefresh = true,
+                            IsPersistent = true,
+                            ExpiresUtc = refreshTokenExpDate.Add(Options.TokenClockSkew)
+                        }, identity);
                 }
             }
             catch (AuthenticationException)
             {
-                context.RejectIdentity();
+                Context.Authentication.SignOut(origIdentity.AuthenticationType);
             }
             catch (Exception)
             {
-                context.RejectIdentity();
-                // TODO: Some kind of exception logging
+                // TODO: Some kind of exception logging, maybe log the user out
                 throw;
             }
         }

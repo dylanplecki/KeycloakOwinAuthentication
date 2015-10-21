@@ -15,18 +15,13 @@ namespace Owin.Security.Keycloak.Internal
     internal class OidcDataManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
-        private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
-        private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
         private readonly Metadata _metadata = new Metadata();
         private readonly KeycloakAuthenticationOptions _options;
-        private DateTime _nextCachedRefreshTime;
+        private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
 
         // Thread-safe pipeline locks
         private bool _cacheRefreshing;
-
-        public string Authority { get; }
-        public Uri MetadataEndpoint { get; }
-        public Uri TokenValidationEndpoint { get; }
+        private DateTime _nextCachedRefreshTime;
 
         private OidcDataManager(KeycloakAuthenticationOptions options)
         {
@@ -38,60 +33,52 @@ namespace Owin.Security.Keycloak.Internal
             TokenValidationEndpoint = new Uri(Authority + "/tokens/validate");
         }
 
+        public string Authority { get; }
+        public Uri MetadataEndpoint { get; }
+        public Uri TokenValidationEndpoint { get; }
+
         private class Metadata
         {
             public readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
 
             public Uri AuthorizationEndpoint;
             public Uri EndSessionEndpoint;
-            public Uri JwksEndpoint;
-            public Uri TokenEndpoint;
-            public Uri UserInfoEndpoint;
 
             public string Issuer;
             public JsonWebKeySet Jwks;
+            public Uri JwksEndpoint;
+            public Uri TokenEndpoint;
+            public Uri UserInfoEndpoint;
         }
 
         #region Context Caching
 
-        // TODO: Check for multithreading memory contention scenarios
-        public static async Task ValidateCachedContextAsync(KeycloakAuthenticationOptions options)
+        public static Task<OidcDataManager> ValidateCachedContextAsync(KeycloakAuthenticationOptions options)
         {
-            //var context = GetCachedContextSafe(options.AuthenticationType);
-            var context = GetCachedContext(options);
+            var context = GetCachedContext(options.AuthenticationType);
+            return context.ValidateCachedContextAsync();
+        }
 
-            // Check if context needs to be created
-            if (context == null)
+        private async Task<OidcDataManager> ValidateCachedContextAsync()
+        {
+            using (var guard = new UpgradeableGuard(_refreshLock))
             {
-                // Thread-safe code check
-                using (new WriterGuard(CacheLock))
-                {
-                    // Double-check context after writer acquire
-                    context = GetCachedContextSafe(options.AuthenticationType);
-                    if (context == null)
-                    {
-                        // TODO: Create context
-                    }
-                }
-            }
-
-            // Thread-safe code check
-            using (var guard = new UpgradeableGuard(context._refreshLock))
-            {
-                if (context._cacheRefreshing) return;
+                if (_cacheRefreshing || _options.MetadataRefreshInterval < 0 || _nextCachedRefreshTime > DateTime.Now)
+                    return this;
                 guard.UpgradeToWriterLock();
-                if (context._cacheRefreshing) return; // Double-check after acquire
-                context._cacheRefreshing = true;
+                if (_cacheRefreshing) return this; // Double-check after writer upgrade
+                _cacheRefreshing = true;
             }
 
-            if (options.MetadataRefreshInterval >= 0 && context._nextCachedRefreshTime <= DateTime.Now)
-                await context.TryRefreshMetadataAsync();
+            if (_options.MetadataRefreshInterval >= 0 && _nextCachedRefreshTime <= DateTime.Now)
+                await TryRefreshMetadataAsync();
 
-            // Thread-safe code check
-            using (new WriterGuard(context._refreshLock))
+            using (new WriterGuard(_refreshLock))
             {
-                context._cacheRefreshing = false;
+                _cacheRefreshing = false;
             }
+
+            return this;
         }
 
         public static OidcDataManager GetCachedContext(KeycloakAuthenticationOptions options)
@@ -112,15 +99,15 @@ namespace Owin.Security.Keycloak.Internal
             return HttpRuntime.Cache.Get(authType + CachedContextPostfix) as OidcDataManager;
         }
 
-        // TODO: Check for multithreading memory contention scenarios
-        public static async Task<OidcDataManager> CreateCachedContextAsync(KeycloakAuthenticationOptions options,
+        public static Task<OidcDataManager> CreateCachedContext(KeycloakAuthenticationOptions options,
             bool preload = true)
         {
-            var cachedContext = new OidcDataManager(options);
-            if (preload) await cachedContext.RefreshMetadataAsync();
-            HttpRuntime.Cache.Insert(options.AuthenticationType + CachedContextPostfix, cachedContext, null,
+            Task<OidcDataManager> preloadTask = null;
+            var newContext = new OidcDataManager(options);
+            if (preload) preloadTask = newContext.ValidateCachedContextAsync();
+            HttpRuntime.Cache.Insert(options.AuthenticationType + CachedContextPostfix, newContext, null,
                 Cache.NoAbsoluteExpiration, Cache.NoSlidingExpiration);
-            return cachedContext;
+            return preload ? preloadTask : Task.FromResult(newContext);
         }
 
         #endregion

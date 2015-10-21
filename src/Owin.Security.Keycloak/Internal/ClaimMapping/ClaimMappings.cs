@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 
 namespace Owin.Security.Keycloak.Internal.ClaimMapping
@@ -15,6 +13,11 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             {
                 ClaimName = Constants.ClaimTypes.Audience,
                 JSelectQuery = "aud"
+            },
+            new ClaimLookup
+            {
+                ClaimName = Constants.ClaimTypes.Issuer,
+                JSelectQuery = "iss"
             },
             new ClaimLookup
             {
@@ -62,10 +65,7 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             }
         };
 
-        public static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>
-        {
-            // No mappings required for Keycloak (yet)
-        };
+        public static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>();
 
         public static IEnumerable<ClaimLookup> RefreshTokenMappings { get; } = new List<ClaimLookup>
         {

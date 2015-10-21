@@ -2,6 +2,8 @@
 {
     public static class Constants
     {
+        public const string BearerTokenHeader = "Authorization";
+
         public static class ClaimTypes
         {
             public const string IdToken = "id_token";
@@ -14,6 +16,7 @@
             public const string Audience = "audience";
             public const string SubjectId = "subject";
             public const string IssuedAt = "issued_at";
+            public const string Issuer = "issuer";
         }
 
         internal static class OpenIdConnectParameterNames
@@ -30,7 +33,5 @@
         {
             public const string AuthenticationProperties = "authProperties";
         }
-
-        public const string BearerTokenHeader = "Authorization";
     }
 }

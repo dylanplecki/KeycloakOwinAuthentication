@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using Newtonsoft.Json.Linq;
@@ -25,19 +24,19 @@ namespace Owin.Security.Keycloak.Internal.ClaimMapping
             switch (jsonToken.Type)
             {
                 case JTokenType.Property:
-                    foreach (var claim in ((JProperty)jsonToken).Value.SelectMany(GenerateClaims))
+                    foreach (var claim in ((JProperty) jsonToken).Value.SelectMany(GenerateClaims))
                         yield return claim;
                     break;
 
                 case JTokenType.Array:
-                    foreach (var claim in ((JArray)jsonToken).SelectMany(GenerateClaims))
+                    foreach (var claim in ((JArray) jsonToken).SelectMany(GenerateClaims))
                         yield return claim;
                     break;
 
                 case JTokenType.Object:
                     foreach (
                         var claim in
-                            ((JObject)jsonToken).Children().SelectMany(GenerateClaims))
+                            ((JObject) jsonToken).Children().SelectMany(GenerateClaims))
                         yield return claim;
                     break;
 
