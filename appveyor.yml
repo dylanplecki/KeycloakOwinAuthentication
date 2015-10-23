@@ -6,7 +6,7 @@ os: Visual Studio 2015
 environment:
   app_version: '2.0.0'
   app_version_postfix: '-beta'
-  app_version_informational: '$(app_version)$(app_version_postfix)'
+  app_version_informational: '3.2.0.1'
 
 branches:
   except:
