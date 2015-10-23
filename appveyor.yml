@@ -6,7 +6,6 @@ os: Visual Studio 2015
 environment:
   app_version: '2.0.0'
   app_version_postfix: '-beta'
-  app_version_informational: '%app_version%%app_version_postfix%'
 
 branches:
   except:
@@ -18,10 +17,11 @@ pull_requests:
 nuget:
   disable_publish_on_pr: true
 
+install:
+  - SET app_version_informational=%app_version%%app_version_postfix%
+  - echo Building Owin.Security.Keycloak Version %app_version_informational% ...
+
 before_build:
-  - echo %app_version%
-  - echo %app_version_postfix%
-  - echo %app_version_informational%
   - type src\Owin.Security.Keycloak\Properties\AssemblyInfo.cs
   - nuget restore src\KeycloakOwinAuthentication.sln
 
