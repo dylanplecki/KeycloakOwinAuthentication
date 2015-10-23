@@ -22,7 +22,6 @@ install:
   - echo Building Owin.Security.Keycloak Version %app_version_informational% ...
 
 before_build:
-  - type src\Owin.Security.Keycloak\Properties\AssemblyInfo.cs
   - nuget restore src\KeycloakOwinAuthentication.sln
 
 build:
