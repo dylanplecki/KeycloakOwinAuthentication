@@ -100,7 +100,8 @@ namespace Owin.Security.Keycloak.Middleware
                     expDate = expDate.Add(Options.TokenClockSkew);
                 else
                     expDate = DateTime.Now.AddHours(2); // Fallback
-
+                
+                Context.Authentication.User = new ClaimsPrincipal(ticket.Identity);
                 Context.Authentication.SignIn(new AuthenticationProperties
                 {
                     AllowRefresh = true,
@@ -227,6 +228,7 @@ namespace Owin.Security.Keycloak.Middleware
 
                     var message = new RefreshAccessTokenMessage(Context.Request, options, refreshToken);
                     var identity = await message.ExecuteAsync();
+                    Context.Authentication.User = new ClaimsPrincipal(identity);
                     Context.Authentication.SignIn(
                         new AuthenticationProperties
                         {
