@@ -6,6 +6,7 @@ os: Visual Studio 2015
 environment:
   app_version: '2.0.0'
   app_version_postfix: '-beta'
+  app_version_informational: '$(app_version)$(app_version_postfix)'
 
 branches:
   except:
@@ -21,6 +22,9 @@ before_build:
   - nuget restore src\KeycloakOwinAuthentication.sln
   
 after_build:
+  - echo %app_version%
+  - echo %app_version_postfix%
+  - echo %app_version_informational%
   - type src\Owin.Security.Keycloak\Properties\AssemblyInfo.cs
 
 build:
@@ -40,7 +44,7 @@ assembly_info:
   file: AssemblyInfo.*
   assembly_version: "$(app_version)"
   assembly_file_version: "{version}"
-  assembly_informational_version: "$(app_version)$(app_version_postfix)"
+  assembly_informational_version: "$(app_version_informational)"
 
 deploy:
   - provider: NuGet
@@ -53,8 +57,8 @@ deploy:
     on:
       branch: master
   - provider: GitHub
-    release: "v$(app_version)$(app_version_postfix)"
-    description: 'Automated release of Keycloak Owin Authentication version $(app_version)$(app_version_postfix) via Appveyor.'
+    release: v$(app_version_informational)
+    description: 'Automated release of Keycloak Owin Authentication version $(app_version_informational) via Appveyor.'
     auth_token:
       secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
     artifact: /.*\.nupkg/
