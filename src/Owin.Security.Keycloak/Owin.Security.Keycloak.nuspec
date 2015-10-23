@@ -11,7 +11,7 @@
     <iconUrl>https://raw.githubusercontent.com/dylanplecki/KeycloakOwinAuthentication/develop/content/keycloak_icon.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
-    <releaseNotes>The first release of the Keycloak OWIN Authentication middleware</releaseNotes>
+    <releaseNotes>This is the second release of the extension, requiring a few breaking API changes within OWIN.</releaseNotes>
     <copyright>Copyright 2015</copyright>
     <tags>keycloak owin authentication middleware</tags>
   </metadata>

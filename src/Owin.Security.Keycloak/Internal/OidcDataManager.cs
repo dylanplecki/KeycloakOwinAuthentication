@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Caching;
 using Microsoft.IdentityModel.Protocols;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -11,62 +12,102 @@ using Owin.Security.Keycloak.Utilities.Synchronization;
 
 namespace Owin.Security.Keycloak.Internal
 {
-    internal class OidcUriManager
+    internal class OidcDataManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
-        private static readonly ReaderWriterLockSlim CacheLock = new ReaderWriterLockSlim();
-        private readonly Metadata _metadataLocations = new Metadata();
+        private readonly Metadata _metadata = new Metadata();
         private readonly KeycloakAuthenticationOptions _options;
-        public readonly string Authority;
-        public readonly Uri MetadataEndpoint;
+        private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
 
-        private OidcUriManager(KeycloakAuthenticationOptions options)
+        // Thread-safe pipeline locks
+        private bool _cacheRefreshing;
+        private DateTime _nextCachedRefreshTime;
+
+        private OidcDataManager(KeycloakAuthenticationOptions options)
         {
             _options = options;
+            _nextCachedRefreshTime = DateTime.Now;
 
             Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
             MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
+            TokenValidationEndpoint = new Uri(Authority + "/tokens/validate");
         }
+
+        public string Authority { get; }
+        public Uri MetadataEndpoint { get; }
+        public Uri TokenValidationEndpoint { get; }
 
         private class Metadata
         {
             public readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
+
             public Uri AuthorizationEndpoint;
             public Uri EndSessionEndpoint;
+
             public string Issuer;
-            public Uri JwksUri;
+            public JsonWebKeySet Jwks;
+            public Uri JwksEndpoint;
             public Uri TokenEndpoint;
             public Uri UserInfoEndpoint;
         }
 
         #region Context Caching
 
-        public static async Task<OidcUriManager> GetCachedContext(KeycloakAuthenticationOptions options)
+        public static Task<OidcDataManager> ValidateCachedContextAsync(KeycloakAuthenticationOptions options)
         {
-            OidcUriManager cachedContext;
-            var success = TryGetCachedContext(options.AuthenticationType, out cachedContext);
-            return success ? cachedContext : (await CreateCachedContext(options));
+            var context = GetCachedContext(options.AuthenticationType);
+            return context.ValidateCachedContextAsync();
         }
 
-        public static bool TryGetCachedContext(string authenticationType, out OidcUriManager context)
+        private async Task<OidcDataManager> ValidateCachedContextAsync()
         {
-            using (new ReaderGuard(CacheLock))
+            using (var guard = new UpgradeableGuard(_refreshLock))
             {
-                context = HttpRuntime.Cache.Get(authenticationType + CachedContextPostfix) as OidcUriManager;
-                return context != null;
+                if (_cacheRefreshing || _options.MetadataRefreshInterval < 0 || _nextCachedRefreshTime > DateTime.Now)
+                    return this;
+                guard.UpgradeToWriterLock();
+                if (_cacheRefreshing) return this; // Double-check after writer upgrade
+                _cacheRefreshing = true;
             }
+
+            if (_options.MetadataRefreshInterval >= 0 && _nextCachedRefreshTime <= DateTime.Now)
+                await TryRefreshMetadataAsync();
+
+            using (new WriterGuard(_refreshLock))
+            {
+                _cacheRefreshing = false;
+            }
+
+            return this;
         }
 
-        public static async Task<OidcUriManager> CreateCachedContext(KeycloakAuthenticationOptions options,
+        public static OidcDataManager GetCachedContext(KeycloakAuthenticationOptions options)
+        {
+            return GetCachedContext(options.AuthenticationType);
+        }
+
+        public static OidcDataManager GetCachedContext(string authType)
+        {
+            var context = GetCachedContextSafe(authType);
+            if (context == null)
+                throw new Exception($"Could not find cached OIDC data manager for module '{authType}'");
+            return context;
+        }
+
+        private static OidcDataManager GetCachedContextSafe(string authType)
+        {
+            return HttpRuntime.Cache.Get(authType + CachedContextPostfix) as OidcDataManager;
+        }
+
+        public static Task<OidcDataManager> CreateCachedContext(KeycloakAuthenticationOptions options,
             bool preload = true)
         {
-            using (new WriterGuard(CacheLock))
-            {
-                var cachedContext = new OidcUriManager(options);
-                if (preload) await cachedContext.RefreshMetadataAsync();
-                HttpRuntime.Cache[options.AuthenticationType + CachedContextPostfix] = cachedContext;
-                return cachedContext;
-            }
+            Task<OidcDataManager> preloadTask = null;
+            var newContext = new OidcDataManager(options);
+            if (preload) preloadTask = newContext.ValidateCachedContextAsync();
+            HttpRuntime.Cache.Insert(options.AuthenticationType + CachedContextPostfix, newContext, null,
+                Cache.NoAbsoluteExpiration, Cache.NoSlidingExpiration);
+            return preload ? preloadTask : Task.FromResult(newContext);
         }
 
         #endregion
@@ -88,19 +129,14 @@ namespace Owin.Security.Keycloak.Internal
 
         public async Task RefreshMetadataAsync()
         {
-            var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync(MetadataEndpoint);
-
-            // Fail on unreachable destination
-            if (!response.IsSuccessStatusCode)
-                throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address unreachable ('{MetadataEndpoint}')");
+            // Get Metadata from endpoint
+            var dataTask = HttpApiGet(MetadataEndpoint);
 
             // Try to get the JSON metadata object
             JObject json;
             try
             {
-                json = JObject.Parse(await response.Content.ReadAsStringAsync());
+                json = JObject.Parse(await dataTask);
             }
             catch (JsonReaderException exception)
             {
@@ -113,26 +149,34 @@ namespace Owin.Security.Keycloak.Internal
             // Set internal URI properties
             try
             {
-                using (new WriterGuard(_metadataLocations.Lock))
+                // Preload required data fields
+                var jwksEndpoint = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
+                var jwks = new JsonWebKeySet(await HttpApiGet(jwksEndpoint));
+
+                using (new WriterGuard(_metadata.Lock))
                 {
-                    _metadataLocations.Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
-                    _metadataLocations.JwksUri = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
-                    _metadataLocations.AuthorizationEndpoint =
+                    _metadata.Jwks = jwks;
+                    _metadata.JwksEndpoint = jwksEndpoint;
+                    _metadata.Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
+                    _metadata.AuthorizationEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
-                    _metadataLocations.TokenEndpoint =
+                    _metadata.TokenEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
-                    _metadataLocations.UserInfoEndpoint =
+                    _metadata.UserInfoEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
-                    _metadataLocations.EndSessionEndpoint =
+                    _metadata.EndSessionEndpoint =
                         new Uri(json[OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
 
                     // Check for values
-                    if (_metadataLocations.AuthorizationEndpoint == null || _metadataLocations.TokenEndpoint == null ||
-                        _metadataLocations.UserInfoEndpoint == null)
+                    if (_metadata.AuthorizationEndpoint == null || _metadata.TokenEndpoint == null ||
+                        _metadata.UserInfoEndpoint == null)
                     {
                         throw new Exception("One or more metadata endpoints are missing");
                     }
                 }
+
+                // Update refresh time
+                _nextCachedRefreshTime = DateTime.Now.AddSeconds(_options.MetadataRefreshInterval);
             }
             catch (Exception exception)
             {
@@ -140,6 +184,19 @@ namespace Owin.Security.Keycloak.Internal
                 throw new Exception(
                     $"RefreshMetadataAsync: Metadata address returned incomplete data ('{MetadataEndpoint}')", exception);
             }
+        }
+
+        private static async Task<string> HttpApiGet(Uri uri)
+        {
+            var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(uri);
+
+            // Fail on unreachable destination
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(
+                    $"RefreshMetadataAsync: HTTP address unreachable ('{uri}')");
+
+            return await response.Content.ReadAsStringAsync();
         }
 
         #endregion
@@ -153,49 +210,57 @@ namespace Owin.Security.Keycloak.Internal
 
         public string GetIssuer()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.Issuer;
+                return _metadata.Issuer;
             }
         }
 
         public Uri GetJwksUri()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.JwksUri;
+                return _metadata.JwksEndpoint;
             }
         }
 
         public Uri GetAuthorizationEndpoint()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.AuthorizationEndpoint;
+                return _metadata.AuthorizationEndpoint;
             }
         }
 
         public Uri GetTokenEndpoint()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.TokenEndpoint;
+                return _metadata.TokenEndpoint;
             }
         }
 
         public Uri GetUserInfoEndpoint()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.UserInfoEndpoint;
+                return _metadata.UserInfoEndpoint;
             }
         }
 
         public Uri GetEndSessionEndpoint()
         {
-            using (new ReaderGuard(_metadataLocations.Lock))
+            using (new ReaderGuard(_metadata.Lock))
             {
-                return _metadataLocations.EndSessionEndpoint;
+                return _metadata.EndSessionEndpoint;
+            }
+        }
+
+        public JsonWebKeySet GetJsonWebKeys()
+        {
+            using (new ReaderGuard(_metadata.Lock))
+            {
+                return _metadata.Jwks;
             }
         }
 

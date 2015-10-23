@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
 using System.Threading.Tasks;
 using Microsoft.Owin;
-using System.Security.Authentication;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {

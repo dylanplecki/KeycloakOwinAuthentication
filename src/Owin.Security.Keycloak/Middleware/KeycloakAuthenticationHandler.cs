@@ -9,7 +9,6 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
-using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.Infrastructure;
 using Owin.Security.Keycloak.Internal;
 using Owin.Security.Keycloak.Models.Messages;
@@ -21,8 +20,10 @@ namespace Owin.Security.Keycloak.Middleware
     {
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
+            // Get and refresh context-based OIDC manager
+            var uriManager = OidcDataManager.GetCachedContext(Options);
+
             // Check for valid callback URI
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
             if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
             {
                 // Create authorization result from query
@@ -39,7 +40,7 @@ namespace Owin.Security.Keycloak.Middleware
                 }
                 catch (BadRequestException exception)
                 {
-                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, exception.Message);
+                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request", exception.Message);
                     return null;
                 }
             }
@@ -49,12 +50,64 @@ namespace Owin.Security.Keycloak.Middleware
 
         public override async Task<bool> InvokeAsync()
         {
+            // Validate and refresh context-based OIDC manager for the current request
+            await OidcDataManager.ValidateCachedContextAsync(Options);
+
+            // Check SignInAs identity for authentication update
+            if (Context.Authentication.User.Identity.IsAuthenticated)
+                await ValidateSignInAsIdentity();
+
+            // Bearer token authentication override
+            if (Options.EnableBearerTokenAuth)
+            {
+                // Try to authenticate via bearer token auth
+                if (Request.Headers.ContainsKey(Constants.BearerTokenHeader))
+                {
+                    var bearerAuthArr = Request.Headers[Constants.BearerTokenHeader].Trim().Split(new[] {' '}, 2);
+                    if ((bearerAuthArr.Length == 2) && bearerAuthArr[0].ToLowerInvariant() == "bearer")
+                    {
+                        try
+                        {
+                            var authResponse = new TokenResponse(bearerAuthArr[1], null, null);
+                            var kcIdentity = new KeycloakIdentity(authResponse);
+                            var identity = await kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
+                            Context.Authentication.User = new ClaimsPrincipal(identity);
+                            return false;
+                        }
+                        catch (Exception)
+                        {
+                            // ignored
+                        }
+                    }
+                }
+
+                // If bearer token auth is forced, skip standard auth
+                if (Options.ForceBearerTokenAuth) return false;
+            }
+
+            // Core authentication mechanism
             var ticket = await AuthenticateAsync();
             if (ticket == null) return false;
 
             if (ticket.Identity != null)
             {
-                Context.Authentication.SignIn(ticket.Properties, ticket.Identity);
+                // Parse expiration date-time
+                DateTime expDate;
+                var expTimestamp =
+                    ticket.Identity.Claims.FirstOrDefault(c => c.Type == Constants.ClaimTypes.RefreshTokenExpiration);
+
+                if (expTimestamp != null && DateTime.TryParse(expTimestamp.Value, out expDate))
+                    expDate = expDate.Add(Options.TokenClockSkew);
+                else
+                    expDate = DateTime.Now.AddHours(2); // Fallback
+
+                Context.Authentication.User = new ClaimsPrincipal(ticket.Identity);
+                Context.Authentication.SignIn(new AuthenticationProperties
+                {
+                    AllowRefresh = true,
+                    IsPersistent = true,
+                    ExpiresUtc = expDate
+                }, ticket.Identity);
             }
 
             // Redirect back to the original secured resource, if any
@@ -69,6 +122,8 @@ namespace Owin.Security.Keycloak.Middleware
 
         protected override async Task ApplyResponseGrantAsync()
         {
+            if (Options.ForceBearerTokenAuth) return;
+
             var signout = Helper.LookupSignOut(Options.AuthenticationType, Options.AuthenticationMode);
 
             if (signout != null)
@@ -81,6 +136,15 @@ namespace Owin.Security.Keycloak.Middleware
         {
             if (Response.StatusCode == 401)
             {
+                // If bearer token auth is forced, keep returned 401
+                if (Options.ForceBearerTokenAuth)
+                {
+                    await
+                        GenerateUnauthorizedResponseAsync(
+                            "Access Unauthorized: Requires valid bearer token authorization header");
+                    return;
+                }
+
                 var challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
                 if (challenge == null) return;
 
@@ -105,7 +169,7 @@ namespace Owin.Security.Keycloak.Middleware
             var state = Global.StateCache.CreateState(stateData);
 
             // Generate login URI and data
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
@@ -117,7 +181,7 @@ namespace Owin.Security.Keycloak.Middleware
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
             // Generate logout URI and data
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
@@ -126,14 +190,14 @@ namespace Owin.Security.Keycloak.Middleware
             Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
         }
 
-        internal static async Task ValidateCookieIdentity(CookieValidateIdentityContext context)
+        internal async Task ValidateSignInAsIdentity()
         {
-            if (context == null) throw new ArgumentNullException();
-            if (context.Identity == null || !context.Identity.IsAuthenticated) return;
+            var origIdentity = Context.Authentication.User.Identities.FirstOrDefault();
+            if (origIdentity == null) return;
 
             try
             {
-                var claimLookup = context.Identity.Claims.ToLookup(c => c.Type, c => c.Value);
+                var claimLookup = origIdentity.Claims.ToLookup(c => c.Type, c => c.Value);
 
                 var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
                 var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
@@ -143,10 +207,11 @@ namespace Owin.Security.Keycloak.Middleware
                     claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
                 var refreshTokenExpiration =
                     claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
+                var refreshTokenExpDate = DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture);
 
                 // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
                 if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null || DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now ||
+                    refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now ||
                     !Global.CheckVersion(version))
                 {
                     throw new AuthenticationException();
@@ -161,36 +226,47 @@ namespace Owin.Security.Keycloak.Middleware
                         throw new AuthenticationException();
                     }
 
-                    var message = new RefreshAccessTokenMessage(context.OwinContext.Request, options, refreshToken);
-                    var claims = await message.ExecuteAsync();
-                    var identity = new ClaimsIdentity(claims, context.Identity.AuthenticationType);
-                    context.ReplaceIdentity(identity);
+                    var message = new RefreshAccessTokenMessage(Context.Request, options, refreshToken);
+                    var identity = await message.ExecuteAsync();
+                    Context.Authentication.User = new ClaimsPrincipal(identity);
+                    Context.Authentication.SignIn(
+                        new AuthenticationProperties
+                        {
+                            AllowRefresh = true,
+                            IsPersistent = true,
+                            ExpiresUtc = refreshTokenExpDate.Add(Options.TokenClockSkew)
+                        }, identity);
                 }
             }
             catch (AuthenticationException)
             {
-                context.RejectIdentity();
+                Context.Authentication.SignOut(origIdentity.AuthenticationType);
             }
             catch (Exception)
             {
-                context.RejectIdentity();
-                // TODO: Some kind of exception logging
+                // TODO: Some kind of exception logging, maybe log the user out
                 throw;
             }
         }
 
-        private async Task GenerateErrorResponseAsync(HttpStatusCode statusCode,
+        private async Task GenerateUnauthorizedResponseAsync(string errorMessage)
+        {
+            await GenerateErrorResponseAsync(Response, HttpStatusCode.Unauthorized, "Unauthorized", errorMessage);
+        }
+
+        private async Task GenerateErrorResponseAsync(HttpStatusCode statusCode, string reasonPhrase,
             string errorMessage)
         {
-            await GenerateErrorResponseAsync(Response, statusCode, errorMessage);
+            await GenerateErrorResponseAsync(Response, statusCode, reasonPhrase, errorMessage);
         }
 
         private static async Task GenerateErrorResponseAsync(IOwinResponse response, HttpStatusCode statusCode,
-            string errorMessage)
+            string reasonPhrase, string errorMessage)
         {
             // Generate error response
             var task = response.WriteAsync(errorMessage);
             response.StatusCode = (int) statusCode;
+            response.ReasonPhrase = reasonPhrase;
             response.ContentType = "text/plain";
             await task;
         }

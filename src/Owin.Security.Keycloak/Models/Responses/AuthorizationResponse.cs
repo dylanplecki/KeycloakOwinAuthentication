@@ -9,7 +9,7 @@ namespace Owin.Security.Keycloak.Models.Responses
     {
         public AuthorizationResponse(string query)
         {
-            Init(HttpUtility.ParseQueryString(query));
+            InitFromRequest(HttpUtility.ParseQueryString(query));
 
             if (!Validate())
             {
@@ -17,17 +17,12 @@ namespace Owin.Security.Keycloak.Models.Responses
             }
         }
 
-        public AuthorizationResponse(NameValueCollection authResult)
-        {
-            Init(authResult);
-        }
-
         public string Code { get; private set; }
         public string State { get; private set; }
 
-        protected new void Init(NameValueCollection authResult)
+        protected new void InitFromRequest(NameValueCollection authResult)
         {
-            base.Init(authResult);
+            base.InitFromRequest(authResult);
 
             Code = authResult.Get(OpenIdConnectParameterNames.Code);
             State = authResult.Get(OpenIdConnectParameterNames.State);

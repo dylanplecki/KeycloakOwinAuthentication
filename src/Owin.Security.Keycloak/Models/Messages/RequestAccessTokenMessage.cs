@@ -1,11 +1,9 @@
 ﻿using System;
 using System.IdentityModel;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Internal.ClaimMapping;
 using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Models.Messages
@@ -29,19 +27,16 @@ namespace Owin.Security.Keycloak.Models.Messages
             if (stateData == null)
                 throw new BadRequestException("Invalid state: Please reattempt the request");
 
-            // Generate claims and create user information
-            var tokenResponse = await ExecuteHttpRequestAsync();
-            var claims = await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
-            var identity = new ClaimsIdentity(claims, Options.SignInAsAuthenticationType);
+            // Generate claims and create user information & authentication ticket
+            var kcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync());
             var properties = stateData[Constants.CacheTypes.AuthenticationProperties] as AuthenticationProperties ??
                              new AuthenticationProperties();
-
-            return new AuthenticationTicket(identity, properties);
+            return new AuthenticationTicket(await kcIdentity.ValidateIdentity(Options), properties);
         }
 
         private async Task<string> ExecuteHttpRequestAsync()
         {
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var response = await SendHttpPostRequest(uriManager.GetTokenEndpoint(),
                 uriManager.BuildAccessTokenEndpointContent(Request.Uri, AuthResponse.Code));
             return await response.Content.ReadAsStringAsync();

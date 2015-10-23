@@ -47,13 +47,23 @@ namespace Owin.Security.Keycloak.Middleware
             if (string.IsNullOrWhiteSpace(Options.CallbackPath))
                 Options.CallbackPath =
                     $"/owin/security/keycloak/{Uri.EscapeDataString(Options.AuthenticationType)}/callback";
-            if (string.IsNullOrWhiteSpace(Options.SignInAsAuthenticationType))
+            if (string.IsNullOrEmpty(Options.SignInAsAuthenticationType))
                 Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
+
+            // Switch composite options
+
+            if (Options.EnableWebApiMode)
+            {
+                Options.EnableBearerTokenAuth = true;
+                Options.ForceBearerTokenAuth = true;
+            }
 
             // Validate options
 
             if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
                 Options.SaveTokensAsClaims = true;
+            if (Options.ForceBearerTokenAuth && !Options.EnableBearerTokenAuth)
+                Options.EnableBearerTokenAuth = true;
 
             // ReSharper disable once PossibleNullReferenceException
             if (Options.KeycloakUrl.EndsWith("/"))
@@ -74,7 +84,7 @@ namespace Owin.Security.Keycloak.Middleware
                 ThrowInvalidOption("PostLogoutRedirectUrl");
 
             // Attempt to refresh OIDC metadata from endpoint
-            var uriManagerTask = OidcUriManager.CreateCachedContext(Options, false);
+            var uriManagerTask = OidcDataManager.CreateCachedContext(Options, false);
             uriManagerTask.Wait();
             var uriManager = uriManagerTask.Result;
 
@@ -85,7 +95,7 @@ namespace Owin.Security.Keycloak.Middleware
             catch (Exception exception)
             {
                 throw new Exception(
-                    $"Cannot refresh data from the OIDC metadat address '{uriManager.MetadataEndpoint}': Check inner",
+                    $"Cannot refresh data from the OIDC metadata address '{uriManager.MetadataEndpoint}': Check inner",
                     exception);
             }
         }

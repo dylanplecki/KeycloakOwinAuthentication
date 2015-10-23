@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Internal.ClaimMapping;
 
 namespace Owin.Security.Keycloak.Models.Messages
 {
-    internal class RefreshAccessTokenMessage : GenericMessage<IEnumerable<Claim>>
+    internal class RefreshAccessTokenMessage : GenericMessage<ClaimsIdentity>
     {
         public RefreshAccessTokenMessage(IOwinRequest request, KeycloakAuthenticationOptions options,
             string refreshToken)
@@ -20,15 +18,15 @@ namespace Owin.Security.Keycloak.Models.Messages
 
         private string RefreshToken { get; }
 
-        public override async Task<IEnumerable<Claim>> ExecuteAsync()
+        public override async Task<ClaimsIdentity> ExecuteAsync()
         {
-            var tokenResponse = await ExecuteHttpRequestAsync(RefreshToken);
-            return await ClaimGenerator.GenerateJwtClaimsAsync(tokenResponse, Options);
+            var newKcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync(RefreshToken));
+            return await newKcIdentity.ValidateIdentity(Options);
         }
 
         private async Task<string> ExecuteHttpRequestAsync(string refreshToken)
         {
-            var uriManager = await OidcUriManager.GetCachedContext(Options);
+            var uriManager = OidcDataManager.GetCachedContext(Options);
             var response =
                 await
                     SendHttpPostRequest(uriManager.GetTokenEndpoint(),
