@@ -69,6 +69,8 @@ namespace Sample.KeycloakAuth
 
 All configuration is done via the `KeycloakAuthenticationOptions` object passed on OWIN startup. The available options are detailed below:
 
+_Note: If using more than one Keycloak authentication module, you must define unique `AuthenticationType` attributes for each `KeycloakAuthenticationOptions` object._
+
 ```c#
 /// <summary>
 ///     Defines the entire URL to the Keycloak instance
@@ -85,27 +87,9 @@ public string KeycloakUrl { get; set; }
 public string Realm { get; set; }
 
 /// <summary>
-///     OPTIONAL: The OpenID scopes to request when authenticating a user
-/// </summary>
-/// <remarks>
-///     - All scopes should be space-delimited in a single string
-///     - Default: "openid"
-/// </remarks>
-public string Scope { get; set; }
-
-/// <summary>
 ///     The client ID to use for the application
 /// </summary>
 public string ClientId { get; set; }
-
-/// <summary>
-///     OPTIONAL: The persistent sign-in mechanism used by the extension
-/// </summary>
-/// <remarks>
-///     - Required for any session-based usage
-///     - Default: Null
-/// </remarks>
-public string SignInAsAuthenticationType { get; set; }
 
 /// <summary>
 ///     OPTIONAL: The client secret to use for the application
@@ -117,12 +101,13 @@ public string SignInAsAuthenticationType { get; set; }
 public string ClientSecret { get; set; }
 
 /// <summary>
-///     OPTIONAL: The absolute URL for users to be redirected to after logout
+///     OPTIONAL: The OpenID scopes to request when authenticating a user
 /// </summary>
 /// <remarks>
-///     - Default: Base URL
+///     - All scopes should be space-delimited in a single string
+///     - Default: "openid"
 /// </remarks>
-public string PostLogoutRedirectUrl { get; set; }
+public string Scope { get; set; }
 
 /// <summary>
 ///     OPTIONAL: Choose a default identity provider to use for the application
@@ -136,6 +121,24 @@ public string PostLogoutRedirectUrl { get; set; }
 public string IdentityProvider { get; set; }
 
 /// <summary>
+///     OPTIONAL: The absolute or relative URL for users to be redirected to after logout
+/// </summary>
+/// <remarks>
+///     - Default: Application base URL
+/// </remarks>
+public string PostLogoutRedirectUrl { get; set; }
+
+/// <summary>
+///     OPTIONAL: Defines the virtual root of the current application
+/// </summary>
+/// <remarks>
+///     - For instance, if using a virtual directory in IIS such as "/secure",
+///     this option would be "/secure"
+///     - Default: "/"
+/// </remarks>
+public string VirtualDirectory { get; set; }
+
+/// <summary>
 ///     OPTIONAL: Whether to use the Web API authentication mode via bearer tokens
 ///     in the authentication header instead of interactive logins
 /// </summary>
@@ -145,6 +148,15 @@ public string IdentityProvider { get; set; }
 ///     - Default: False
 /// </remarks>
 public bool EnableWebApiMode { get; set; } = false;
+
+/// <summary>
+///     OPTIONAL: The persistent sign-in mechanism used by the extension
+/// </summary>
+/// <remarks>
+///     - Required for any session-based usage
+///     - Default: Null
+/// </remarks>
+public string SignInAsAuthenticationType { get; set; }
 
 /// <summary>
 ///     OPTIONAL.ADV: Save access and ID tokens as user claims
@@ -245,8 +257,6 @@ public bool UseRemoteTokenValidation { get; set; } = false;
 /// </remarks>
 public int MetadataRefreshInterval { get; set; } = 3600;
 ```
-
-Note: If using more than one Keycloak authentication module, you must define unique `AuthenticationType` attributes for each `KeycloakAuthenticationOptions` object.
 
 ## Issues & Requests
 

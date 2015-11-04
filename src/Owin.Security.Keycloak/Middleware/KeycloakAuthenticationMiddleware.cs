@@ -35,9 +35,16 @@ namespace Owin.Security.Keycloak.Middleware
 
             // Verify required options
             if (Options.KeycloakUrl == null)
-                ThrowOptionNotFound("KeycloakUrl");
+                ThrowOptionNotFound(nameof(Options.KeycloakUrl));
             if (Options.Realm == null)
-                ThrowOptionNotFound("Realm");
+                ThrowOptionNotFound(nameof(Options.Realm));
+
+            // Load web root path from config
+            if (string.IsNullOrWhiteSpace(Options.VirtualDirectory))
+                Options.VirtualDirectory = "/";
+            Options.VirtualDirectory = NormalizeUrl(Options.VirtualDirectory);
+            if (!Uri.IsWellFormedUriString(Options.VirtualDirectory, UriKind.Relative))
+                ThrowInvalidOption(nameof(Options.VirtualDirectory));
 
             // Set default options
             if (string.IsNullOrWhiteSpace(Options.ResponseType))
@@ -46,7 +53,9 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.Scope = "openid";
             if (string.IsNullOrWhiteSpace(Options.CallbackPath))
                 Options.CallbackPath =
-                    $"/owin/security/keycloak/{Uri.EscapeDataString(Options.AuthenticationType)}/callback";
+                    $"{Options.VirtualDirectory}/owin/security/keycloak/{Uri.EscapeDataString(Options.AuthenticationType)}/callback";
+            if (string.IsNullOrWhiteSpace(Options.PostLogoutRedirectUrl))
+                Options.PostLogoutRedirectUrl = Options.VirtualDirectory;
             if (string.IsNullOrEmpty(Options.SignInAsAuthenticationType))
                 Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
 
@@ -58,30 +67,23 @@ namespace Owin.Security.Keycloak.Middleware
                 Options.ForceBearerTokenAuth = true;
             }
 
-            // Validate options
+            // Validate other options
 
             if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
                 Options.SaveTokensAsClaims = true;
             if (Options.ForceBearerTokenAuth && !Options.EnableBearerTokenAuth)
                 Options.EnableBearerTokenAuth = true;
 
-            // ReSharper disable once PossibleNullReferenceException
-            if (Options.KeycloakUrl.EndsWith("/"))
-                Options.KeycloakUrl = Options.KeycloakUrl.TrimEnd('/');
-
-            // ReSharper disable once PossibleNullReferenceException
-            if (!Options.CallbackPath.StartsWith("/"))
-                Options.CallbackPath = "/" + Options.CallbackPath;
-            if (Options.CallbackPath.EndsWith("/"))
-                Options.CallbackPath = Options.CallbackPath.TrimEnd('/');
+            Options.KeycloakUrl = NormalizeUrl(Options.KeycloakUrl);
+            Options.CallbackPath = NormalizeUrlPath(Options.CallbackPath);
 
             if (!Uri.IsWellFormedUriString(Options.KeycloakUrl, UriKind.Absolute))
-                ThrowInvalidOption("KeycloakUrl");
+                ThrowInvalidOption(nameof(Options.KeycloakUrl));
             if (!Uri.IsWellFormedUriString(Options.CallbackPath, UriKind.Relative))
-                ThrowInvalidOption("CallbackPath");
+                ThrowInvalidOption(nameof(Options.CallbackPath));
             if (Options.PostLogoutRedirectUrl != null &&
-                !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.Absolute))
-                ThrowInvalidOption("PostLogoutRedirectUrl");
+                !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
+                ThrowInvalidOption(nameof(Options.PostLogoutRedirectUrl));
 
             // Attempt to refresh OIDC metadata from endpoint
             var uriManagerTask = OidcDataManager.CreateCachedContext(Options, false);
@@ -100,6 +102,20 @@ namespace Owin.Security.Keycloak.Middleware
             }
         }
 
+        private static string NormalizeUrl(string url)
+        {
+            if (url.EndsWith("/"))
+                url = url.TrimEnd('/');
+            return url;
+        }
+
+        private static string NormalizeUrlPath(string url)
+        {
+            if (!url.StartsWith("/"))
+                url = "/" + url;
+            return NormalizeUrl(url);
+        }
+
         private void ThrowOptionNotFound(string optionName)
         {
             var message =
@@ -111,7 +127,7 @@ namespace Owin.Security.Keycloak.Middleware
         {
             var message =
                 $"KeycloakAuthenticationOptions [id:{Options.AuthenticationType}] : Provided option '{optionName}' is invalid";
-            throw (inner == null ? new Exception(message) : new Exception(message, inner));
+            throw inner == null ? new Exception(message) : new Exception(message, inner);
         }
     }
 }
