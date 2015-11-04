@@ -6,12 +6,12 @@
     <title>$title$</title>
     <authors>Dylan Plecki</authors>
     <owners>Dylan Plecki</owners>
-    <licenseUrl>https://raw.githubusercontent.com/dylanplecki/KeycloakOwinAuthentication/develop/LICENSE.md</licenseUrl>
+    <licenseUrl>https://raw.githubusercontent.com/dylanplecki/KeycloakOwinAuthentication/master/LICENSE.md</licenseUrl>
     <projectUrl>https://github.com/dylanplecki/KeycloakOwinAuthentication</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/dylanplecki/KeycloakOwinAuthentication/develop/content/keycloak_icon.png</iconUrl>
+    <iconUrl>https://raw.githubusercontent.com/dylanplecki/KeycloakOwinAuthentication/master/content/keycloak_icon.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
-    <releaseNotes>This is the second release of the extension, requiring a few breaking API changes within OWIN.</releaseNotes>
+    <releaseNotes>See https://github.com/dylanplecki/KeycloakOwinAuthentication/releases</releaseNotes>
     <copyright>Copyright 2015</copyright>
     <tags>keycloak owin authentication middleware</tags>
   </metadata>
