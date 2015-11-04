@@ -348,21 +348,17 @@ namespace Owin.Security.Keycloak.Internal
             if (!string.IsNullOrWhiteSpace(idToken))
                 parameters.Add(OpenIdConnectParameterNames.IdTokenHint, idToken);
 
-            // Provided postlogouturl takes precedence over options
-            if (!string.IsNullOrWhiteSpace(postLogoutRedirectUrl) &&
-                Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.Absolute))
-            {
-                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, postLogoutRedirectUrl);
-            }
-            else if (!string.IsNullOrWhiteSpace(_options.PostLogoutRedirectUrl))
-            {
-                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, _options.PostLogoutRedirectUrl);
-            }
-            else
-            {
-                parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri,
-                    requestUri.GetLeftPart(UriPartial.Authority));
-            }
+            // Add postLogoutRedirectUrl to parameters
+            if (string.IsNullOrEmpty(postLogoutRedirectUrl))
+                postLogoutRedirectUrl = _options.PostLogoutRedirectUrl;
+
+            if (Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.Relative))
+                postLogoutRedirectUrl = requestUri.GetLeftPart(UriPartial.Authority) + postLogoutRedirectUrl;
+
+            if (!Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
+                throw new Exception("Invalid PostLogoutRedirectUrl option: Not a valid relative/absolute URL");
+
+            parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, postLogoutRedirectUrl);
 
             return new FormUrlEncodedContent(parameters);
         }
