@@ -88,7 +88,6 @@
     <Compile Include="Constants.cs" />
     <Compile Include="Extensions\AppBuilderExtension.cs" />
     <Compile Include="Extensions\DateTimeExtension.cs" />
-    <Compile Include="Extensions\HttpClientExtension.cs" />
     <Compile Include="Extensions\JwtSecurityTokenExtension.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="Internal\KeycloakIdentity.cs" />
