@@ -57,8 +57,21 @@ namespace Owin.Security.Keycloak.Middleware
                     $"{Options.VirtualDirectory}/owin/security/keycloak/{Uri.EscapeDataString(Options.AuthenticationType)}/callback";
             if (string.IsNullOrWhiteSpace(Options.PostLogoutRedirectUrl))
                 Options.PostLogoutRedirectUrl = Options.VirtualDirectory;
+
             if (string.IsNullOrEmpty(Options.SignInAsAuthenticationType))
-                Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
+            {
+                try
+                {
+                    Options.SignInAsAuthenticationType = App.GetDefaultSignInAsAuthenticationType();
+                }
+                catch (Exception)
+                {
+                    if (Options.EnableWebApiMode)
+                        Options.SignInAsAuthenticationType = "";
+                    else
+                        throw;
+                }
+            }
 
             // Switch composite options
 
