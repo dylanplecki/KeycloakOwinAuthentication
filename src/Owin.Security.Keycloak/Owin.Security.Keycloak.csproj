@@ -109,7 +109,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Keycloak.IdentityModel\KeycloakIdentityModel.csproj">
+    <ProjectReference Include="..\KeycloakIdentityModel\KeycloakIdentityModel.csproj">
       <Project>{fa6dddd7-366a-4012-acf2-252c599f80c0}</Project>
       <Name>KeycloakIdentityModel</Name>
     </ProjectReference>

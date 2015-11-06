@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Owin.Security.Keycloak", "O
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.KeycloakAuth", "Sample.KeycloakAuth\Sample.KeycloakAuth.csproj", "{B4A55157-66CB-48E0-8B50-5B900BC373E1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeycloakIdentityModel", "Keycloak.IdentityModel\KeycloakIdentityModel.csproj", "{FA6DDDD7-366A-4012-ACF2-252C599F80C0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeycloakIdentityModel", "KeycloakIdentityModel\KeycloakIdentityModel.csproj", "{FA6DDDD7-366A-4012-ACF2-252C599F80C0}"
 EndProject
 Global
 	GlobalSection(Performance) = preSolution
