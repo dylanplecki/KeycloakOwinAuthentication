@@ -100,6 +100,14 @@ namespace Owin.Security.Keycloak
         public string SignInAsAuthenticationType { get; set; }
 
         /// <summary>
+        ///     OPTIONAL.ADV: Set the expiration time for the SignInAsAuthentication method
+        /// </summary>
+        /// <remarks>
+        ///     - Default: 30 minutes
+        /// </remarks>
+        public TimeSpan SignInAsAuthenticationExpiration { get; set; } = TimeSpan.FromMinutes(30);
+
+        /// <summary>
         ///     OPTIONAL.ADV: Save access and ID tokens as user claims
         /// </summary>
         /// <remarks>

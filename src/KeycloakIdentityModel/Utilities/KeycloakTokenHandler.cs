@@ -5,10 +5,9 @@ using System.IdentityModel.Tokens;
 using System.Net.Http;
 using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
-using KeycloakIdentityModel.Utilities;
 using Microsoft.IdentityModel;
 
-namespace KeycloakIdentityModel
+namespace KeycloakIdentityModel.Utilities
 {
     public class KeycloakTokenHandler : JwtSecurityTokenHandler
     {

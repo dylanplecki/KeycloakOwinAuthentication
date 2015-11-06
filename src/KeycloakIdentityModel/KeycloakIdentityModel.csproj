@@ -62,7 +62,7 @@
     <Compile Include="Utilities\ClaimMapping\ClaimMappings.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="KeycloakIdentity.cs" />
-    <Compile Include="KeycloakTokenHandler.cs" />
+    <Compile Include="Utilities\KeycloakTokenHandler.cs" />
     <Compile Include="Utilities\OidcDataManager.cs" />
     <Compile Include="Utilities\Caching\StateCache.cs" />
     <Compile Include="Models\Messages\GenericMessage.cs" />

@@ -211,45 +211,18 @@ namespace Owin.Security.Keycloak.Middleware
 
             try
             {
-                var claimLookup = origIdentity.Claims.ToLookup(c => c.Type, c => c.Value);
-
-                var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
-                var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
-                var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
-
-                var accessTokenExpiration =
-                    claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
-                var refreshTokenExpiration =
-                    claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
-                var refreshTokenExpDate = DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture);
-
-                // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
-                if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now ||
-                    !KeycloakIdentityModel.Global.CheckVersion(version))
-                {
-                    throw new AuthenticationException();
-                }
+                var identity = await KeycloakIdentity.ValidateAndRefreshIdentity(origIdentity, Options, Request.Uri);
 
                 // Get new access token if expired
-                if (DateTime.Parse(accessTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now)
+                if (identity != null)
                 {
-                    KeycloakAuthenticationOptions options;
-                    if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
-                    {
-                        throw new AuthenticationException();
-                    }
-
-                    var message = new RefreshAccessTokenMessage(Request.Uri, options, refreshToken);
-
-                    var identity = await message.ExecuteAsync();
                     Context.Authentication.User = new ClaimsPrincipal(identity);
                     Context.Authentication.SignIn(
                         new AuthenticationProperties
                         {
                             AllowRefresh = true,
                             IsPersistent = true,
-                            ExpiresUtc = refreshTokenExpDate.Add(Options.TokenClockSkew)
+                            ExpiresUtc = DateTime.Now.Add(Options.SignInAsAuthenticationExpiration)
                         }, identity);
                 }
             }
