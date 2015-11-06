@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
+using KeycloakIdentityModel;
+using KeycloakIdentityModel.Utilities;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Internal;
 
 namespace Owin.Security.Keycloak.Middleware
 {

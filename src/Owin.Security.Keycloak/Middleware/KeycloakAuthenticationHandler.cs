@@ -7,12 +7,13 @@ using System.Net;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using KeycloakIdentityModel;
+using KeycloakIdentityModel.Models.Messages;
+using KeycloakIdentityModel.Models.Responses;
+using KeycloakIdentityModel.Utilities;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Models.Messages;
-using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -34,9 +35,22 @@ namespace Owin.Security.Keycloak.Middleware
                     // Check for errors
                     authResult.ThrowIfError();
 
+                    // Start verification process async
+                    var message = new RequestAccessTokenMessage(Request.Uri, Options, authResult);
+                    var messageTask = message.ExecuteAsync();
+
+                    // Validate passed state
+                    var stateData = Global.StateCache.ReturnState(authResult.State);
+                    if (stateData == null)
+                        throw new BadRequestException("Invalid state: Please reattempt the request");
+
+                    // Parse properties from state data
+                    var properties =
+                        stateData[Constants.CacheTypes.AuthenticationProperties] as AuthenticationProperties ??
+                        new AuthenticationProperties();
+
                     // Process response
-                    var message = new RequestAccessTokenMessage(Request, Options, authResult);
-                    return await message.ExecuteAsync();
+                    return new AuthenticationTicket(await messageTask, properties);
                 }
                 catch (BadRequestException exception)
                 {
@@ -212,7 +226,7 @@ namespace Owin.Security.Keycloak.Middleware
                 // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
                 if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
                     refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now ||
-                    !Global.CheckVersion(version))
+                    !KeycloakIdentityModel.Global.CheckVersion(version))
                 {
                     throw new AuthenticationException();
                 }
@@ -226,7 +240,8 @@ namespace Owin.Security.Keycloak.Middleware
                         throw new AuthenticationException();
                     }
 
-                    var message = new RefreshAccessTokenMessage(Context.Request, options, refreshToken);
+                    var message = new RefreshAccessTokenMessage(Request.Uri, options, refreshToken);
+
                     var identity = await message.ExecuteAsync();
                     Context.Authentication.User = new ClaimsPrincipal(identity);
                     Context.Authentication.SignIn(

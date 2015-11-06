@@ -204,6 +204,10 @@
     <None Include="Project_Readme.html" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Keycloak.IdentityModel\KeycloakIdentityModel.csproj">
+      <Project>{fa6dddd7-366a-4012-acf2-252c599f80c0}</Project>
+      <Name>KeycloakIdentityModel</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Owin.Security.Keycloak\Owin.Security.Keycloak.csproj">
       <Project>{16edd97e-727a-4366-bf79-629295a162d1}</Project>
       <Name>Owin.Security.Keycloak</Name>

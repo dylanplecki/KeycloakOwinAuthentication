@@ -1,9 +1,10 @@
 ﻿using System;
+using KeycloakIdentityModel.Models.Configuration;
 using Microsoft.Owin.Security;
 
 namespace Owin.Security.Keycloak
 {
-    public class KeycloakAuthenticationOptions : AuthenticationOptions
+    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakSettings
     {
         private const string DefaultAuthenticationType = "KeycloakAuthentication";
 

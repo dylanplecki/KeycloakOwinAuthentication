@@ -85,30 +85,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\KeycloakAuthenticationOptions.cs" />
-    <Compile Include="Constants.cs" />
     <Compile Include="Extensions\AppBuilderExtension.cs" />
-    <Compile Include="Extensions\DateTimeExtension.cs" />
-    <Compile Include="Extensions\JwtSecurityTokenExtension.cs" />
     <Compile Include="Global.cs" />
-    <Compile Include="Internal\KeycloakIdentity.cs" />
-    <Compile Include="Internal\KeycloakTokenHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationHandler.cs" />
     <Compile Include="Middleware\KeycloakAuthenticationMiddleware.cs" />
-    <Compile Include="Models\Responses\AuthorizationResponse.cs" />
-    <Compile Include="Models\Messages\GenericMessage.cs" />
-    <Compile Include="Models\Messages\RefreshAccessTokenMessage.cs" />
-    <Compile Include="Models\Messages\RequestAccessTokenMessage.cs" />
-    <Compile Include="Models\Responses\OidcResponse.cs" />
-    <Compile Include="Models\Responses\TokenResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Internal\ClaimMapping\ClaimMappings.cs" />
-    <Compile Include="Internal\ClaimMapping\ClaimLookup.cs" />
-    <Compile Include="Internal\OidcDataManager.cs" />
-    <Compile Include="Utilities\Cache.cs" />
-    <Compile Include="Internal\StateCache.cs" />
-    <Compile Include="Utilities\Synchronization\ReaderGuard.cs" />
-    <Compile Include="Utilities\Synchronization\UpgradeableGuard.cs" />
-    <Compile Include="Utilities\Synchronization\WriterGuard.cs" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">
@@ -126,6 +107,12 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Keycloak.IdentityModel\KeycloakIdentityModel.csproj">
+      <Project>{fa6dddd7-366a-4012-acf2-252c599f80c0}</Project>
+      <Name>KeycloakIdentityModel</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
