@@ -4,8 +4,8 @@ platform: Any CPU
 os: Visual Studio 2015
 
 environment:
-  app_version: '2.0.2'
-  app_version_postfix: '-beta'
+  app_version: '2.0.3'
+  app_version_postfix: ''
 
 branches:
   except:
@@ -60,6 +60,6 @@ deploy:
       secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
     artifact: /.*\.nupkg/
     draft: false
-    prerelease: true
+    prerelease: false
     on:
       branch: master

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
@@ -85,14 +86,12 @@ namespace Owin.Security.Keycloak.Middleware
                 !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
                 ThrowInvalidOption(nameof(Options.PostLogoutRedirectUrl));
 
-            // Attempt to refresh OIDC metadata from endpoint
-            var uriManagerTask = OidcDataManager.CreateCachedContext(Options, false);
-            uriManagerTask.Wait();
-            var uriManager = uriManagerTask.Result;
+            // Attempt to refresh OIDC metadata from endpoint (on seperate thread)
+            var uriManager = Task.Run(() => OidcDataManager.CreateCachedContext(Options, false)).Result;
 
             try
             {
-                uriManager.RefreshMetadataAsync().Wait();
+                Task.Run(uriManager.RefreshMetadataAsync).Wait();
             }
             catch (Exception exception)
             {

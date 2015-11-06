@@ -2,7 +2,7 @@
 
 namespace Owin.Security.Keycloak
 {
-    public static class DateTimeExtension
+    internal static class DateTimeExtension
     {
         public static double ToUnixTimestamp(this DateTime dateTime)
         {
