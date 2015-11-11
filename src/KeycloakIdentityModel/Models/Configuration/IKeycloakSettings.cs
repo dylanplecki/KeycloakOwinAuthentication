@@ -2,7 +2,7 @@
 
 namespace KeycloakIdentityModel.Models.Configuration
 {
-    public interface IKeycloakSettings
+    public interface IKeycloakParameters
     {
         string AuthenticationType { get; }
         string KeycloakUrl { get; }

@@ -11,7 +11,7 @@ namespace KeycloakIdentityModel.Utilities
 {
     public class KeycloakTokenHandler : JwtSecurityTokenHandler
     {
-        public static async Task<SecurityToken> ValidateTokenRemote(string jwt, IKeycloakSettings options)
+        public static async Task<SecurityToken> ValidateTokenRemote(string jwt, IKeycloakParameters options)
         {
             // This should really only be used on access tokens...
             var uriManager = OidcDataManager.GetCachedContext(options);
@@ -29,7 +29,7 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public bool TryValidateToken(string jwt, IKeycloakSettings options, out SecurityToken rToken)
+        public bool TryValidateToken(string jwt, IKeycloakParameters options, out SecurityToken rToken)
         {
             try
             {
@@ -43,7 +43,7 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public SecurityToken ValidateToken(string jwt, IKeycloakSettings options)
+        public SecurityToken ValidateToken(string jwt, IKeycloakParameters options)
         {
             var uriManager = OidcDataManager.GetCachedContext(options);
             var tokenValidationParameters = new TokenValidationParameters

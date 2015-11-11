@@ -9,7 +9,7 @@ namespace KeycloakIdentityModel.Models.Messages
 {
     public class RequestAccessTokenMessage : GenericMessage<ClaimsIdentity>
     {
-        public RequestAccessTokenMessage(Uri baseUri, IKeycloakSettings options,
+        public RequestAccessTokenMessage(Uri baseUri, IKeycloakParameters options,
             AuthorizationResponse authResponse)
             : base(baseUri, options)
         {

@@ -4,7 +4,7 @@ using Microsoft.Owin.Security;
 
 namespace Owin.Security.Keycloak
 {
-    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakSettings
+    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakParameters
     {
         private const string DefaultAuthenticationType = "KeycloakAuthentication";
 

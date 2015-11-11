@@ -8,7 +8,7 @@ namespace KeycloakIdentityModel.Models.Messages
 {
     public class RefreshAccessTokenMessage : GenericMessage<ClaimsIdentity>
     {
-        public RefreshAccessTokenMessage(Uri baseUri, IKeycloakSettings options,
+        public RefreshAccessTokenMessage(Uri baseUri, IKeycloakParameters options,
             string refreshToken)
             : base(baseUri, options)
         {

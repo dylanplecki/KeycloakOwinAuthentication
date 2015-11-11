@@ -17,14 +17,14 @@ namespace KeycloakIdentityModel.Utilities
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private readonly Metadata _metadata = new Metadata();
-        private readonly IKeycloakSettings _options;
+        private readonly IKeycloakParameters _options;
         private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
 
         // Thread-safe pipeline locks
         private bool _cacheRefreshing;
         private DateTime _nextCachedRefreshTime;
 
-        private OidcDataManager(IKeycloakSettings options)
+        private OidcDataManager(IKeycloakParameters options)
         {
             _options = options;
             _nextCachedRefreshTime = DateTime.Now;
@@ -54,7 +54,7 @@ namespace KeycloakIdentityModel.Utilities
 
         #region Context Caching
 
-        public static Task<OidcDataManager> ValidateCachedContextAsync(IKeycloakSettings options)
+        public static Task<OidcDataManager> ValidateCachedContextAsync(IKeycloakParameters options)
         {
             var context = GetCachedContext(options.AuthenticationType);
             return context.ValidateCachedContextAsync();
@@ -82,7 +82,7 @@ namespace KeycloakIdentityModel.Utilities
             return this;
         }
 
-        public static OidcDataManager GetCachedContext(IKeycloakSettings options)
+        public static OidcDataManager GetCachedContext(IKeycloakParameters options)
         {
             return GetCachedContext(options.AuthenticationType);
         }
@@ -100,7 +100,7 @@ namespace KeycloakIdentityModel.Utilities
             return HttpRuntime.Cache.Get(authType + CachedContextPostfix) as OidcDataManager;
         }
 
-        public static Task<OidcDataManager> CreateCachedContext(IKeycloakSettings options,
+        public static Task<OidcDataManager> CreateCachedContext(IKeycloakParameters options,
             bool preload = true)
         {
             Task<OidcDataManager> preloadTask = null;

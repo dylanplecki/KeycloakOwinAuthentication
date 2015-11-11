@@ -74,10 +74,8 @@ namespace KeycloakIdentityModel
         /// Validate and parse the current keycloak identity
         /// </summary>
         /// <param name="options"></param>
-        /// <param name="authenticationType"></param>
         /// <returns>Identity</returns>
-        public async Task<ClaimsIdentity> ValidateIdentity(IKeycloakSettings options,
-            string authenticationType = null)
+        public async Task<ClaimsIdentity> ValidateIdentity(IKeycloakParameters options)
         {
             // Validate JWTs provided
             SecurityToken idToken = null, refreshToken = null, accessToken = null;
@@ -98,8 +96,7 @@ namespace KeycloakIdentityModel
             return // TODO: Convert to MS claims parsing in token handler
                 new ClaimsIdentity(
                     GenerateJwtClaims(accessToken as JwtSecurityToken, idToken as JwtSecurityToken,
-                        refreshToken as JwtSecurityToken, options),
-                    authenticationType ?? options.SignInAsAuthenticationType);
+                        refreshToken as JwtSecurityToken, options), options.AuthenticationType);
         }
 
         /// <summary>
@@ -107,7 +104,7 @@ namespace KeycloakIdentityModel
         /// </summary>
         /// <param name="identity"></param>
         /// <returns></returns>
-        public static ValidationStatus ValidateIdentity(ClaimsIdentity identity)
+        protected static ValidationStatus ValidateIdentity(ClaimsIdentity identity)
         {
             var claimLookup = identity.Claims.ToLookup(c => c.Type, c => c.Value);
 
@@ -133,11 +130,11 @@ namespace KeycloakIdentityModel
         /// Validate a claims identity as a keycloak identity and refresh the information if expired
         /// </summary>
         /// <param name="identity"></param>
-        /// <param name="options"></param>
         /// <param name="baseUri"></param>
+        /// <param name="options"></param>
         /// <returns></returns>
-        public static Task<ClaimsIdentity> ValidateAndRefreshIdentity(ClaimsIdentity identity,
-            IKeycloakSettings options, Uri baseUri)
+        public static Task<ClaimsIdentity> ValidateAndRefreshIdentity(ClaimsIdentity identity, Uri baseUri,
+            IKeycloakParameters options)
         {
             switch (ValidateIdentity(identity))
             {
@@ -155,7 +152,7 @@ namespace KeycloakIdentityModel
         }
 
         protected IEnumerable<Claim> GenerateJwtClaims(JwtSecurityToken accessToken, JwtSecurityToken idToken,
-            JwtSecurityToken refreshToken, IKeycloakSettings options)
+            JwtSecurityToken refreshToken, IKeycloakParameters options)
         {
             // Add generic claims
             yield return new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType);

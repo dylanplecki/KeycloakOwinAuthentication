@@ -9,7 +9,7 @@ namespace KeycloakIdentityModel.Models.Messages
 {
     public abstract class GenericMessage<T>
     {
-        protected GenericMessage(Uri baseUri, IKeycloakSettings options)
+        protected GenericMessage(Uri baseUri, IKeycloakParameters options)
         {
             if (baseUri == null) throw new ArgumentNullException();
             if (options == null) throw new ArgumentNullException();
@@ -18,7 +18,7 @@ namespace KeycloakIdentityModel.Models.Messages
         }
 
         protected Uri BaseUri { get; }
-        protected IKeycloakSettings Options { get; }
+        protected IKeycloakParameters Options { get; }
         public abstract Task<T> ExecuteAsync();
 
         protected async Task<HttpResponseMessage> SendHttpPostRequest(Uri uri, HttpContent content = null)

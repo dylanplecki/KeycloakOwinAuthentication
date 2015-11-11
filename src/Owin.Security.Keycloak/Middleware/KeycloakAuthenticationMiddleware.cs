@@ -59,7 +59,7 @@ namespace Owin.Security.Keycloak.Middleware
             if (string.IsNullOrWhiteSpace(Options.PostLogoutRedirectUrl))
                 Options.PostLogoutRedirectUrl = Options.VirtualDirectory;
 
-            if (string.IsNullOrEmpty(Options.SignInAsAuthenticationType))
+            if (Options.SignInAsAuthenticationType == null)
             {
                 try
                 {
@@ -67,10 +67,7 @@ namespace Owin.Security.Keycloak.Middleware
                 }
                 catch (Exception)
                 {
-                    if (Options.EnableWebApiMode)
-                        Options.SignInAsAuthenticationType = "";
-                    else
-                        throw;
+                    Options.SignInAsAuthenticationType = "";
                 }
             }
 
