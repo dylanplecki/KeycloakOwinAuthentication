@@ -9,15 +9,13 @@ namespace KeycloakIdentityModel.Models.Messages
 {
     public abstract class GenericMessage<T>
     {
-        protected GenericMessage(Uri baseUri, IKeycloakParameters options)
+        protected GenericMessage(IKeycloakParameters options)
         {
-            if (baseUri == null) throw new ArgumentNullException();
-            if (options == null) throw new ArgumentNullException();
-            BaseUri = baseUri;
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
             Options = options;
         }
 
-        protected Uri BaseUri { get; }
         protected IKeycloakParameters Options { get; }
         public abstract Task<T> ExecuteAsync();
 

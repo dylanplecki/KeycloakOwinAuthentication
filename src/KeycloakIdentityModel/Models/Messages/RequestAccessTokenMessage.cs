@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
 using KeycloakIdentityModel.Models.Responses;
@@ -7,23 +6,25 @@ using KeycloakIdentityModel.Utilities;
 
 namespace KeycloakIdentityModel.Models.Messages
 {
-    public class RequestAccessTokenMessage : GenericMessage<ClaimsIdentity>
+    public class RequestAccessTokenMessage : GenericMessage<TokenResponse>
     {
         public RequestAccessTokenMessage(Uri baseUri, IKeycloakParameters options,
             AuthorizationResponse authResponse)
-            : base(baseUri, options)
+            : base(options)
         {
-            if (authResponse == null) throw new ArgumentNullException();
+            if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
+            if (authResponse == null) throw new ArgumentNullException(nameof(authResponse));
+
+            BaseUri = baseUri;
             AuthResponse = authResponse;
         }
 
+        protected Uri BaseUri { get; }
         private AuthorizationResponse AuthResponse { get; }
 
-        public override async Task<ClaimsIdentity> ExecuteAsync()
+        public override async Task<TokenResponse> ExecuteAsync()
         {
-            // Generate claims and create user information & identity
-            var kcIdentity = new KeycloakIdentity(await ExecuteHttpRequestAsync());
-            return await kcIdentity.ValidateIdentity(Options);
+            return new TokenResponse(await ExecuteHttpRequestAsync());
         }
 
         private async Task<string> ExecuteHttpRequestAsync()

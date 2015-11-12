@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IdentityModel.Tokens;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Security.Authentication;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using KeycloakIdentityModel.Extensions;
 using KeycloakIdentityModel.Models.Configuration;
@@ -19,158 +18,157 @@ namespace KeycloakIdentityModel
 {
     public class KeycloakIdentity
     {
-        public enum ValidationStatus
-        {
-            Invalid,
-            Expired,
-            Valid
-        }
+        private JwtSecurityToken _accessToken;
+        private JwtSecurityToken _idToken;
+        private JwtSecurityToken _refreshToken;
 
-        private readonly string _accessToken;
-        private readonly string _idToken;
-        private readonly string _refreshToken;
+        private readonly IKeycloakParameters _parameters;
+
+        private readonly SemaphoreSlim _cachedIdentityLock = new SemaphoreSlim(1);
+        private ClaimsIdentity _cachedIdentity;
 
         /// <summary>
-        /// Load a new identity from a token endpoint response string
+        ///     Load a new Keycloak-based identity
         /// </summary>
-        /// <param name="encodedTokenResponse"></param>
-        public KeycloakIdentity(string encodedTokenResponse)
-            : this(new TokenResponse(encodedTokenResponse))
+        /// <param name="parameters"></param>
+        public KeycloakIdentity(IKeycloakParameters parameters)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            _parameters = parameters;
         }
 
         /// <summary>
-        /// Load a new identity from the token endpoint response JSON
+        ///     Import a new identity from a ClaimsIdentity
         /// </summary>
-        /// <param name="tokenResponseJson"></param>
-        public KeycloakIdentity(JObject tokenResponseJson)
-            : this(new TokenResponse(tokenResponseJson))
+        /// <param name="identity"></param>
+        /// <returns></returns>
+        public Task ImportClaimsIdentity(ClaimsIdentity identity)
         {
+            var claimLookup = identity.Claims.ToLookup(c => c.Type, c => c.Value);
+
+            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+            var idToken = claimLookup[Constants.ClaimTypes.IdToken].FirstOrDefault();
+            var accessToken = claimLookup[Constants.ClaimTypes.AccessToken].FirstOrDefault();
+
+            return ImportJwt(accessToken, idToken, refreshToken);
         }
 
         /// <summary>
-        /// Load a new identity from a token response
+        ///     Import a new identity from a TokenResponse message
         /// </summary>
-        /// <param name="tokenResponse"></param>
-        public KeycloakIdentity(TokenResponse tokenResponse)
-            : this(tokenResponse.AccessToken, tokenResponse.IdToken, tokenResponse.RefreshToken)
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public Task ImportTokenResponse(TokenResponse message)
         {
+            return ImportJwt(message.AccessToken, message.IdToken, message.RefreshToken);
         }
 
         /// <summary>
-        /// Load a new identity from any combination of JWTs
+        ///     Import a new identity from a set of JWTs
         /// </summary>
         /// <param name="accessToken"></param>
         /// <param name="idToken"></param>
         /// <param name="refreshToken"></param>
-        public KeycloakIdentity(string accessToken, string idToken, string refreshToken)
-        {
-            _accessToken = accessToken;
-            _idToken = idToken;
-            _refreshToken = refreshToken;
-        }
-
-        /// <summary>
-        /// Validate and parse the current keycloak identity
-        /// </summary>
-        /// <param name="options"></param>
-        /// <returns>Identity</returns>
-        public async Task<ClaimsIdentity> ValidateIdentity(IKeycloakParameters options)
+        /// <returns></returns>
+        public async Task ImportJwt(string accessToken, string idToken, string refreshToken)
         {
             // Validate JWTs provided
-            SecurityToken idToken = null, refreshToken = null, accessToken = null;
+            JwtSecurityToken idSecurityToken = null, refreshSecurityToken = null, accessSecurityToken;
             var tokenHandler = new KeycloakTokenHandler();
-            if (_idToken != null)
-                idToken = tokenHandler.ValidateToken(_idToken, options);
-            if (_refreshToken != null)
-                refreshToken = tokenHandler.ValidateToken(_refreshToken, options);
-            if (_accessToken != null)
-            {
-                if (options.UseRemoteTokenValidation)
-                    accessToken = await KeycloakTokenHandler.ValidateTokenRemote(_accessToken, options);
-                else
-                    accessToken = tokenHandler.ValidateToken(_accessToken, options);
-            }
+
+            if (idToken != null)
+                idSecurityToken = tokenHandler.ValidateToken(idToken, _parameters) as JwtSecurityToken;
+
+            if (refreshToken != null)
+                refreshSecurityToken = tokenHandler.ValidateToken(refreshToken, _parameters) as JwtSecurityToken;
+
+            if (_parameters.UseRemoteTokenValidation)
+                accessSecurityToken =
+                    await KeycloakTokenHandler.ValidateTokenRemote(accessToken, _parameters) as
+                        JwtSecurityToken;
+            else
+                accessSecurityToken = tokenHandler.ValidateToken(accessToken, _parameters) as JwtSecurityToken;
+
+            if (accessSecurityToken == null) throw new Exception("Internal error: Invalid access token; valid required");
 
             // Create the new claims identity
-            return // TODO: Convert to MS claims parsing in token handler
-                new ClaimsIdentity(
-                    GenerateJwtClaims(accessToken as JwtSecurityToken, idToken as JwtSecurityToken,
-                        refreshToken as JwtSecurityToken, options), options.AuthenticationType);
+            // TODO: Convert to MS claims parsing in token handler
+            var identity = new ClaimsIdentity(GenerateJwtClaims(accessSecurityToken, idSecurityToken, refreshSecurityToken),
+                _parameters.AuthenticationType);
+
+            // Save to this
+            _cachedIdentity = identity;
+            _idToken = idSecurityToken;
+            _accessToken = accessSecurityToken;
+            _refreshToken = refreshSecurityToken;
         }
 
         /// <summary>
-        /// Validate a claims identity as a keycloak identity
+        ///     Validate and generate the current keycloak identity safely (without exceptions)
         /// </summary>
-        /// <param name="identity"></param>
-        /// <returns></returns>
-        protected static ValidationStatus ValidateIdentity(ClaimsIdentity identity)
+        /// <returns>Identity (null on invalid identity)</returns>
+        public Task<ClaimsIdentity> TryGenerateIdentity()
         {
-            var claimLookup = identity.Claims.ToLookup(c => c.Type, c => c.Value);
-
-            var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
-            var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
-            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
-
-            var accessTokenExpiration =
-                claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
-            var refreshTokenExpiration =
-                claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
-            var refreshTokenExpDate = DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture);
-
-            if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now || !Global.CheckVersion(version))
-                return ValidationStatus.Invalid;
-            if (DateTime.Parse(accessTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now)
-                return ValidationStatus.Expired;
-            return ValidationStatus.Valid;
-        }
-
-        /// <summary>
-        /// Validate a claims identity as a keycloak identity and refresh the information if expired
-        /// </summary>
-        /// <param name="identity"></param>
-        /// <param name="baseUri"></param>
-        /// <param name="options"></param>
-        /// <returns></returns>
-        public static Task<ClaimsIdentity> ValidateAndRefreshIdentity(ClaimsIdentity identity, Uri baseUri,
-            IKeycloakParameters options)
-        {
-            switch (ValidateIdentity(identity))
+            try
             {
-                case ValidationStatus.Invalid:
-                    throw new AuthenticationException();
-                case ValidationStatus.Expired:
-                    var message = new RefreshAccessTokenMessage(baseUri, options,
-                        identity.Claims.First(c => c.Type == Constants.ClaimTypes.RefreshToken).Value);
-                    return message.ExecuteAsync();
-                case ValidationStatus.Valid:
-                    return Task.FromResult<ClaimsIdentity>(null);
-                default:
-                    throw new Exception("Unknown error occurred");
+                return GenerateIdentity();
+            }
+            catch (Exception)
+            {
+                return Task.FromResult<ClaimsIdentity>(null);
+            }
+        }
+
+        /// <summary>
+        ///     Validate and generate the current keycloak identity
+        /// </summary>
+        /// <returns>Identity</returns>
+        public async Task<ClaimsIdentity> GenerateIdentity()
+        {
+            await _cachedIdentityLock.WaitAsync();
+            try
+            {
+                // Check to update cached identity
+                if (_cachedIdentity == null || _accessToken.ValidTo <= DateTime.Now)
+                {
+                    // Validate refresh token expiration
+                    if (_refreshToken.ValidTo <= DateTime.Now)
+                        throw new Exception("Both the access token and the refresh token have expired");
+
+                    // Load new identity from token endpoint via refresh token
+                    var responseMessage =
+                        await new RefreshAccessTokenMessage(_parameters, _refreshToken.RawData).ExecuteAsync();
+                    await ImportTokenResponse(responseMessage);
+                }
+
+                return _cachedIdentity;
+            }
+            finally
+            {
+                _cachedIdentityLock.Release();
             }
         }
 
         protected IEnumerable<Claim> GenerateJwtClaims(JwtSecurityToken accessToken, JwtSecurityToken idToken,
-            JwtSecurityToken refreshToken, IKeycloakParameters options)
+            JwtSecurityToken refreshToken)
         {
             // Add generic claims
-            yield return new Claim(Constants.ClaimTypes.AuthenticationType, options.AuthenticationType);
+            yield return new Claim(Constants.ClaimTypes.AuthenticationType, _parameters.AuthenticationType);
             yield return new Claim(Constants.ClaimTypes.Version, Global.GetVersion());
 
             // Save the recieved tokens as claims
-            if (options.SaveTokensAsClaims)
+            if (_parameters.SaveTokensAsClaims)
             {
                 if (_idToken != null)
-                    yield return new Claim(Constants.ClaimTypes.IdToken, _idToken);
+                    yield return new Claim(Constants.ClaimTypes.IdToken, _idToken.RawData);
                 if (_accessToken != null)
-                    yield return new Claim(Constants.ClaimTypes.AccessToken, _accessToken);
+                    yield return new Claim(Constants.ClaimTypes.AccessToken, _accessToken.RawData);
                 if (_refreshToken != null)
-                    yield return new Claim(Constants.ClaimTypes.RefreshToken, _refreshToken);
+                    yield return new Claim(Constants.ClaimTypes.RefreshToken, _refreshToken.RawData);
             }
 
             // Add OIDC token claims
-            var jsonId = options.ClientId;
+            var jsonId = _parameters.ClientId;
             if (_idToken != null)
                 foreach (
                     var claim in ProcessOidcToken(idToken.GetPayloadJObject(), ClaimMappings.IdTokenMappings, jsonId))

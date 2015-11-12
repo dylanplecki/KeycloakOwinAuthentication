@@ -40,8 +40,9 @@ namespace Owin.Security.Keycloak.Middleware
                         try
                         {
                             var authResponse = new TokenResponse(bearerAuthArr[1], null, null);
-                            var kcIdentity = new KeycloakIdentity(authResponse);
-                            var identity = await kcIdentity.ValidateIdentity(Options);
+                            var kcIdentity = new KeycloakIdentity(Options);
+                            await kcIdentity.ImportTokenResponse(authResponse);
+                            var identity = await kcIdentity.GenerateIdentity();
                             SignInAsAuthentication(identity, null, Options.SignInAsAuthenticationType);
                             return new AuthenticationTicket(identity, new AuthenticationProperties());
                         }
@@ -92,7 +93,9 @@ namespace Owin.Security.Keycloak.Middleware
                         new AuthenticationProperties();
 
                     // Process response
-                    var identity = await messageTask;
+                    var kcIdentity = new KeycloakIdentity(Options);
+                    await kcIdentity.ImportTokenResponse(await messageTask);
+                    var identity = await kcIdentity.GenerateIdentity();
                     SignInAsAuthentication(identity, properties);
                     Context.Authentication.User.AddIdentity(identity);
 
@@ -198,7 +201,9 @@ namespace Owin.Security.Keycloak.Middleware
                     if (!origIdentity.HasClaim(Constants.ClaimTypes.AuthenticationType, Options.AuthenticationType))
                         continue;
 
-                    var identity = await KeycloakIdentity.ValidateAndRefreshIdentity(origIdentity, Request.Uri, Options);
+                    var kcIdentity = new KeycloakIdentity(Options);
+                    await kcIdentity.ImportClaimsIdentity(origIdentity);
+                    var identity = await kcIdentity.GenerateIdentity();
                     if (identity == null) continue;
 
                     // Replace identity if expired
