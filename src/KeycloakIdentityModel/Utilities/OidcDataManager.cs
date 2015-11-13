@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace KeycloakIdentityModel.Utilities
 {
-    public class OidcDataManager
+    internal class OidcDataManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private readonly Metadata _metadata = new Metadata();
@@ -24,7 +24,7 @@ namespace KeycloakIdentityModel.Utilities
         private bool _cacheRefreshing;
         private DateTime _nextCachedRefreshTime;
 
-        private OidcDataManager(IKeycloakParameters options)
+        protected OidcDataManager(IKeycloakParameters options)
         {
             _options = options;
             _nextCachedRefreshTime = DateTime.Now;
@@ -93,6 +93,12 @@ namespace KeycloakIdentityModel.Utilities
             if (context == null)
                 throw new Exception($"Could not find cached OIDC data manager for module '{authType}'");
             return context;
+        }
+
+        public static Task<OidcDataManager> GetCachedContextAsync(IKeycloakParameters options)
+        {
+            var context = GetCachedContextSafe(options.AuthenticationType);
+            return context != null ? Task.FromResult(context) : CreateCachedContext(options);
         }
 
         private static OidcDataManager GetCachedContextSafe(string authType)

@@ -24,7 +24,7 @@ namespace KeycloakIdentityModel.Models.Messages
 
         private async Task<string> ExecuteHttpRequestAsync()
         {
-            var uriManager = OidcDataManager.GetCachedContext(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
             var response =
                 await
                     SendHttpPostRequest(uriManager.GetTokenEndpoint(),

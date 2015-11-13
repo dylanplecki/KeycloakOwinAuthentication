@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using KeycloakIdentityModel;
 using KeycloakIdentityModel.Models.Messages;
 using KeycloakIdentityModel.Models.Responses;
-using KeycloakIdentityModel.Utilities;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
@@ -18,14 +17,6 @@ namespace Owin.Security.Keycloak.Middleware
 {
     internal class KeycloakAuthenticationHandler : AuthenticationHandler<KeycloakAuthenticationOptions>
     {
-        private OidcDataManager _oidcManager;
-
-        protected override async Task InitializeCoreAsync()
-        {
-            // Validate and refresh context-based OIDC manager for the current request
-            _oidcManager = await OidcDataManager.ValidateCachedContextAsync(Options);
-        }
-
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
             // Bearer token authentication override
@@ -40,9 +31,8 @@ namespace Owin.Security.Keycloak.Middleware
                         try
                         {
                             var authResponse = new TokenResponse(bearerAuthArr[1], null, null);
-                            var kcIdentity = new KeycloakIdentity(Options);
-                            await kcIdentity.ImportTokenResponse(authResponse);
-                            var identity = await kcIdentity.GenerateIdentity();
+                            var kcIdentity = await KeycloakIdentity.ConvertFromTokenResponseAsync(Options, authResponse);
+                            var identity = await kcIdentity.ToClaimsIdentityAsync();
                             SignInAsAuthentication(identity, null, Options.SignInAsAuthenticationType);
                             return new AuthenticationTicket(identity, new AuthenticationProperties());
                         }
@@ -68,7 +58,8 @@ namespace Owin.Security.Keycloak.Middleware
 
             // Check for valid callback URI
             if (!Options.ForceBearerTokenAuth &&
-                Request.Uri.GetLeftPart(UriPartial.Path) == _oidcManager.GetCallbackUri(Request.Uri).ToString())
+                Request.Uri.GetLeftPart(UriPartial.Path) ==
+                KeycloakIdentity.GenerateLoginCallbackUriAsync(Options, Request.Uri).ToString())
             {
                 // Create authorization result from query
                 var authResult = new AuthorizationResponse(Request.Uri.Query);
@@ -93,9 +84,8 @@ namespace Owin.Security.Keycloak.Middleware
                         new AuthenticationProperties();
 
                     // Process response
-                    var kcIdentity = new KeycloakIdentity(Options);
-                    await kcIdentity.ImportTokenResponse(await messageTask);
-                    var identity = await kcIdentity.GenerateIdentity();
+                    var kcIdentity = await KeycloakIdentity.ConvertFromTokenResponseAsync(Options, await messageTask);
+                    var identity = await kcIdentity.ToClaimsIdentityAsync();
                     SignInAsAuthentication(identity, properties);
                     Context.Authentication.User.AddIdentity(identity);
 
@@ -200,13 +190,11 @@ namespace Owin.Security.Keycloak.Middleware
                 {
                     if (!origIdentity.HasClaim(Constants.ClaimTypes.AuthenticationType, Options.AuthenticationType))
                         continue;
-
-                    var kcIdentity = new KeycloakIdentity(Options);
-                    await kcIdentity.ImportClaimsIdentity(origIdentity);
-                    var identity = await kcIdentity.GenerateIdentity();
-                    if (identity == null) continue;
+                    var kcIdentity = await KeycloakIdentity.ConvertFromClaimsIdentityAsync(Options, origIdentity);
+                    if (kcIdentity.IsAuthenticated) continue;
 
                     // Replace identity if expired
+                    var identity = await kcIdentity.ToClaimsIdentityAsync();
                     Context.Authentication.User = new ClaimsPrincipal(identity);
                     SignInAsAuthentication(identity, null, Options.SignInAsAuthenticationType);
                 }
@@ -262,26 +250,16 @@ namespace Owin.Security.Keycloak.Middleware
             };
             var state = Global.StateCache.CreateState(stateData);
 
-            // Generate login URI and data
-            var uriManager = OidcDataManager.GetCachedContext(Options);
-            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
-            var loginUrl = uriManager.GetAuthorizationEndpoint();
-
             // Redirect response to login
-            var loginQueryString = await loginParams.ReadAsStringAsync();
-            Response.Redirect(loginUrl + (!string.IsNullOrEmpty(loginQueryString) ? "?" + loginQueryString : ""));
+            Response.Redirect((await KeycloakIdentity.GenerateLoginUriAsync(Options, Request.Uri, state)).ToString());
         }
 
         private async Task LogoutRedirectAsync(AuthenticationProperties properties)
         {
-            // Generate logout URI and data
-            var uriManager = OidcDataManager.GetCachedContext(Options);
-            var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
-            var logoutUrl = uriManager.GetEndSessionEndpoint();
-
             // Redirect response to logout
-            var logoutQueryString = await logoutParams.ReadAsStringAsync();
-            Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
+            Response.Redirect(
+                (await KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri, new Uri(properties.RedirectUri)))
+                    .ToString());
         }
 
         #endregion

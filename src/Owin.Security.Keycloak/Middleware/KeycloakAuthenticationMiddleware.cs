@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Threading.Tasks;
 using KeycloakIdentityModel;
-using KeycloakIdentityModel.Utilities;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
@@ -80,9 +78,7 @@ namespace Owin.Security.Keycloak.Middleware
             }
 
             // Validate other options
-
-            if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
-                Options.SaveTokensAsClaims = true;
+            
             if (Options.ForceBearerTokenAuth && !Options.EnableBearerTokenAuth)
                 Options.EnableBearerTokenAuth = true;
 
@@ -97,19 +93,11 @@ namespace Owin.Security.Keycloak.Middleware
                 !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
                 ThrowInvalidOption(nameof(Options.PostLogoutRedirectUrl));
 
-            // Attempt to refresh OIDC metadata from endpoint (on seperate thread)
-            var uriManager = Task.Run(() => OidcDataManager.CreateCachedContext(Options, false)).Result;
-
-            try
-            {
-                Task.Run(uriManager.RefreshMetadataAsync).Wait();
-            }
-            catch (Exception exception)
-            {
+            // Final parameter validation
+            if (!KeycloakIdentity.ValidateParameters(Options))
                 throw new Exception(
-                    $"Cannot refresh data from the OIDC metadata address '{uriManager.MetadataEndpoint}': Check inner",
-                    exception);
-            }
+                    $"KeycloakAuthenticationOptions: Keycloak instance '{authType}' contains invalid options; " +
+                    "This is most like an HTTP error when requesting metadata from the Keycloak server");
         }
 
         private static string NormalizeUrl(string url)

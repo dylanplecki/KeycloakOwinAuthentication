@@ -12,8 +12,6 @@ namespace KeycloakIdentityModel.Models.Configuration
         string Scope { get; }
         string IdentityProvider { get; }
         string PostLogoutRedirectUrl { get; }
-        string SignInAsAuthenticationType { get; }
-        bool SaveTokensAsClaims { get; }
         bool DisableTokenSignatureValidation { get; }
         bool AllowUnsignedTokens { get; }
         bool DisableIssuerValidation { get; }

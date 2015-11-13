@@ -9,12 +9,17 @@ using Microsoft.IdentityModel;
 
 namespace KeycloakIdentityModel.Utilities
 {
-    public class KeycloakTokenHandler : JwtSecurityTokenHandler
+    internal class KeycloakTokenHandler : JwtSecurityTokenHandler
     {
         public static async Task<SecurityToken> ValidateTokenRemote(string jwt, IKeycloakParameters options)
         {
+            var uriManager = await OidcDataManager.GetCachedContextAsync(options);
+            return await ValidateTokenRemote(jwt, uriManager);
+        }
+
+        public static async Task<SecurityToken> ValidateTokenRemote(string jwt, OidcDataManager uriManager)
+        {
             // This should really only be used on access tokens...
-            var uriManager = OidcDataManager.GetCachedContext(options);
             var uri = new Uri(uriManager.TokenValidationEndpoint, "?access_token=" + jwt);
             try
             {
@@ -29,11 +34,11 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public bool TryValidateToken(string jwt, IKeycloakParameters options, out SecurityToken rToken)
+        public bool TryValidateToken(string jwt, IKeycloakParameters options, OidcDataManager uriManager, out SecurityToken rToken)
         {
             try
             {
-                rToken = ValidateToken(jwt, options);
+                rToken = ValidateToken(jwt, options, uriManager);
                 return true;
             }
             catch (Exception)
@@ -43,9 +48,14 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public SecurityToken ValidateToken(string jwt, IKeycloakParameters options)
+        public async Task<SecurityToken> ValidateTokenAsync(string jwt, IKeycloakParameters options)
         {
-            var uriManager = OidcDataManager.GetCachedContext(options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(options);
+            return ValidateToken(jwt, options, uriManager);
+        }
+
+        public SecurityToken ValidateToken(string jwt, IKeycloakParameters options, OidcDataManager uriManager)
+        {
             var tokenValidationParameters = new TokenValidationParameters
             {
                 ValidateLifetime = true,
@@ -64,7 +74,7 @@ namespace KeycloakIdentityModel.Utilities
             return ValidateToken(jwt, tokenValidationParameters);
         }
 
-        public bool TryValidateToken(string securityToken, TokenValidationParameters validationParameters,
+        protected bool TryValidateToken(string securityToken, TokenValidationParameters validationParameters,
             out SecurityToken rToken)
         {
             try
@@ -79,7 +89,7 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public SecurityToken ValidateToken(string securityToken, TokenValidationParameters validationParameters)
+        protected SecurityToken ValidateToken(string securityToken, TokenValidationParameters validationParameters)
         {
             ////////////////////////////////
             // Copied from MS Source Code //

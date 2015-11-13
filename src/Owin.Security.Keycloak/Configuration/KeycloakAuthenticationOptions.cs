@@ -108,15 +108,6 @@ namespace Owin.Security.Keycloak
         public TimeSpan SignInAsAuthenticationExpiration { get; set; } = TimeSpan.FromMinutes(30);
 
         /// <summary>
-        ///     OPTIONAL.ADV: Save access and ID tokens as user claims
-        /// </summary>
-        /// <remarks>
-        ///     - Forced enabled when using 'AutoTokenRefresh'
-        ///     - Default: True
-        /// </remarks>
-        public bool SaveTokensAsClaims { get; set; } = true;
-
-        /// <summary>
         ///     OPTIONAL.ADV: Allow authentication via the bearer token authorization header
         /// </summary>
         /// <remarks>
