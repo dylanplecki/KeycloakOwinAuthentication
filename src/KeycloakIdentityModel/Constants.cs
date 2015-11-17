@@ -27,6 +27,7 @@
         public static class KeycloakParameters
         {
             public const string IdpHint = "kc_idp_hint";
+            public const string NoCallbackUri = "urn:ietf:wg:oauth:2.0:oob";
         }
 
         public static class CacheTypes

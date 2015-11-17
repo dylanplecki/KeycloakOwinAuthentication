@@ -37,8 +37,7 @@ namespace KeycloakIdentityModel
         protected KeycloakIdentity(IKeycloakParameters parameters)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
-            if (ValidateParameters(parameters))
-                throw new ArgumentException("Invalid IKeycloakParameters passed to KeycloakIdentity");
+            ValidateParameters(parameters);
             _parameters = parameters;
         }
 
@@ -75,6 +74,7 @@ namespace KeycloakIdentityModel
         [SecurityCritical]
         public override void AddClaim(Claim claim)
         {
+            if (claim == null) throw new ArgumentNullException(nameof(claim));
             _userClaims.Add(claim);
         }
 
@@ -85,6 +85,7 @@ namespace KeycloakIdentityModel
         [SecurityCritical]
         public override void AddClaims(IEnumerable<Claim> claims)
         {
+            if (claims == null) throw new ArgumentNullException(nameof(claims));
             _userClaims.AddRange(claims);
         }
 
@@ -95,6 +96,7 @@ namespace KeycloakIdentityModel
         [SecurityCritical]
         public override void RemoveClaim(Claim claim)
         {
+            if (claim == null) throw new ArgumentNullException(nameof(claim));
             if (!TryRemoveClaim(claim))
                 throw new InvalidOperationException();
         }
@@ -107,6 +109,7 @@ namespace KeycloakIdentityModel
         [SecurityCritical]
         public override bool TryRemoveClaim(Claim claim)
         {
+            if (claim == null) throw new ArgumentNullException(nameof(claim));
             return _userClaims.Remove(claim);
         }
 
@@ -159,6 +162,8 @@ namespace KeycloakIdentityModel
         public static Task<KeycloakIdentity> ConvertFromClaimsIdentityAsync(IKeycloakParameters parameters,
             ClaimsIdentity identity)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (identity == null) throw new ArgumentNullException(nameof(identity));
             return ConvertFromClaimsAsync(parameters, identity.Claims);
         }
 
@@ -171,6 +176,8 @@ namespace KeycloakIdentityModel
         public static async Task<KeycloakIdentity> ConvertFromClaimsAsync(IKeycloakParameters parameters,
             IEnumerable<Claim> claims)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (claims == null) throw new ArgumentNullException(nameof(claims));
             var kcIdentity = new KeycloakIdentity(parameters);
             await kcIdentity.ImportClaims(claims);
             return kcIdentity;
@@ -185,9 +192,31 @@ namespace KeycloakIdentityModel
         public static async Task<KeycloakIdentity> ConvertFromTokenResponseAsync(IKeycloakParameters parameters,
             TokenResponse message)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (message == null) throw new ArgumentNullException(nameof(message));
+
             var kcIdentity = new KeycloakIdentity(parameters);
             await kcIdentity.ImportTokenResponse(message);
             return kcIdentity;
+        }
+
+        /// <summary>
+        ///     Converts a JWT token-response endpoint message into a Keycloak identity
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <param name="response"></param>
+        /// <param name="baseUri"></param>
+        /// <returns></returns>
+        public static async Task<KeycloakIdentity> ConvertFromAuthResponseAsync(IKeycloakParameters parameters,
+            AuthorizationResponse response, Uri baseUri)
+        {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (response == null) throw new ArgumentNullException(nameof(response));
+            if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
+
+            response.ThrowIfError();
+            var message = new RequestAccessTokenMessage(baseUri, parameters, response);
+            return await ConvertFromTokenResponseAsync(parameters, await message.ExecuteAsync());
         }
 
         /// <summary>
@@ -201,6 +230,9 @@ namespace KeycloakIdentityModel
         public static async Task<KeycloakIdentity> ConvertFromJwtAsync(IKeycloakParameters parameters,
             string accessToken, string refreshToken = null, string idToken = null)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (accessToken == null) throw new ArgumentNullException(nameof(accessToken));
+
             var kcIdentity = new KeycloakIdentity(parameters);
             await kcIdentity.ImportJwt(accessToken, refreshToken, idToken);
             return kcIdentity;
@@ -216,6 +248,9 @@ namespace KeycloakIdentityModel
         public static async Task<Uri> GenerateLoginUriAsync(IKeycloakParameters parameters, Uri baseUri,
             string state = null)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
+
             // Generate login URI and data
             var uriManager = await OidcDataManager.GetCachedContextAsync(parameters);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(baseUri, state ?? Guid.NewGuid().ToString());
@@ -234,6 +269,9 @@ namespace KeycloakIdentityModel
         /// <returns></returns>
         public static async Task<Uri> GenerateLoginCallbackUriAsync(IKeycloakParameters parameters, Uri baseUri)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
+
             return (await OidcDataManager.GetCachedContextAsync(parameters)).GetCallbackUri(baseUri);
         }
 
@@ -247,6 +285,10 @@ namespace KeycloakIdentityModel
         public static async Task<Uri> GenerateLogoutUriAsync(IKeycloakParameters parameters, Uri baseUri,
             Uri redirectUri)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
+            if (redirectUri == null) throw new ArgumentNullException(nameof(redirectUri));
+
             // Generate logout URI and data
             var uriManager = await OidcDataManager.GetCachedContextAsync(parameters);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(baseUri, null, redirectUri.ToString());
@@ -258,48 +300,68 @@ namespace KeycloakIdentityModel
         }
 
         /// <summary>
+        ///     Trys to validate an IKeycloakParameters object for completeness and correctness
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        public static bool TryValidateParameters(IKeycloakParameters parameters)
+        {
+            try
+            {
+                ValidateParameters(parameters);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         ///     Validates an IKeycloakParameters object for completeness and correctness
         /// </summary>
         /// <param name="parameters"></param>
         /// <returns></returns>
-        public static bool ValidateParameters(IKeycloakParameters parameters)
+        public static void ValidateParameters(IKeycloakParameters parameters)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+
             // Verify required parameters
             if (parameters.KeycloakUrl == null)
-                return false;
+                throw new ArgumentNullException(nameof(parameters.KeycloakUrl));
             if (parameters.Realm == null)
-                return false;
+                throw new ArgumentNullException(nameof(parameters.Realm));
 
             // Set default parameters
             if (string.IsNullOrWhiteSpace(parameters.ResponseType))
-                return false;
+                throw new ArgumentNullException(nameof(parameters.ResponseType));
             if (string.IsNullOrWhiteSpace(parameters.Scope))
-                return false;
+                throw new ArgumentNullException(nameof(parameters.Scope));
             if (string.IsNullOrWhiteSpace(parameters.CallbackPath))
-                return false;
+                throw new ArgumentNullException(nameof(parameters.CallbackPath));
             if (string.IsNullOrWhiteSpace(parameters.PostLogoutRedirectUrl))
-                return false;
+                throw new ArgumentNullException(nameof(parameters.PostLogoutRedirectUrl));
 
             // Validate other parameters
             if (!Uri.IsWellFormedUriString(parameters.KeycloakUrl, UriKind.Absolute))
-                return false;
-            if (!Uri.IsWellFormedUriString(parameters.CallbackPath, UriKind.Relative))
-                return false;
+                throw new ArgumentException(nameof(parameters.KeycloakUrl));
+            if (!Uri.IsWellFormedUriString(parameters.CallbackPath, UriKind.Relative) &&
+                parameters.CallbackPath != Constants.KeycloakParameters.NoCallbackUri)
+                throw new ArgumentException(nameof(parameters.CallbackPath));
             if (parameters.PostLogoutRedirectUrl != null &&
                 !Uri.IsWellFormedUriString(parameters.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
-                return false;
+                throw new ArgumentException(nameof(parameters.PostLogoutRedirectUrl));
 
             // Attempt to refresh OIDC metadata from endpoint (on seperate thread)
             try
             {
                 Task.Run(() => OidcDataManager.GetCachedContextAsync(parameters)).Wait();
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                return false;
+                throw new ArgumentException("Invalid Keycloak server parameters specified: See inner for server error",
+                    exception);
             }
-
-            return true;
         }
 
         #endregion
@@ -346,9 +408,9 @@ namespace KeycloakIdentityModel
             // Validate JWTs provided
             var tokenHandler = new KeycloakTokenHandler();
             var uriManager = await OidcDataManager.GetCachedContextAsync(_parameters);
-            
-            SecurityToken accessSecurityToken = null, idSecurityToken = null, refreshSecurityToken = null;
-            
+
+            SecurityToken accessSecurityToken, idSecurityToken = null, refreshSecurityToken = null;
+
             if (_parameters.UseRemoteTokenValidation)
             {
                 accessSecurityToken = await KeycloakTokenHandler.ValidateTokenRemote(accessToken, uriManager);
@@ -445,7 +507,7 @@ namespace KeycloakIdentityModel
                     // Load new identity from token endpoint via refresh token
                     var responseMessage =
                         await new RefreshAccessTokenMessage(_parameters, _refreshToken.RawData).ExecuteAsync();
-                    ImportTokenResponse(responseMessage);
+                    await ImportTokenResponse(responseMessage);
                 }
 
                 return GetCurrentClaims();

@@ -18,7 +18,7 @@ namespace KeycloakIdentityModel.Models.Configuration
         bool DisableAudienceValidation { get; }
         TimeSpan TokenClockSkew { get; }
         bool UseRemoteTokenValidation { get; }
-        int MetadataRefreshInterval { get; }
+        TimeSpan MetadataRefreshInterval { get; }
         string CallbackPath { get; }
         string ResponseType { get; }
     }

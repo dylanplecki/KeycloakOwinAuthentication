@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace KeycloakIdentityModel.Utilities
 {
-    internal class OidcDataManager
+    public class OidcDataManager
     {
         private const string CachedContextPostfix = "_Cached_OidcUriManager";
         private readonly Metadata _metadata = new Metadata();
@@ -64,14 +64,14 @@ namespace KeycloakIdentityModel.Utilities
         {
             using (var guard = new UpgradeableGuard(_refreshLock))
             {
-                if (_cacheRefreshing || _options.MetadataRefreshInterval < 0 || _nextCachedRefreshTime > DateTime.Now)
+                if (_cacheRefreshing || _nextCachedRefreshTime > DateTime.Now)
                     return this;
                 guard.UpgradeToWriterLock();
                 if (_cacheRefreshing) return this; // Double-check after writer upgrade
                 _cacheRefreshing = true;
             }
 
-            if (_options.MetadataRefreshInterval >= 0 && _nextCachedRefreshTime <= DateTime.Now)
+            if (_nextCachedRefreshTime <= DateTime.Now)
                 await TryRefreshMetadataAsync();
 
             using (new WriterGuard(_refreshLock))
@@ -183,7 +183,7 @@ namespace KeycloakIdentityModel.Utilities
                 }
 
                 // Update refresh time
-                _nextCachedRefreshTime = DateTime.Now.AddSeconds(_options.MetadataRefreshInterval);
+                _nextCachedRefreshTime = DateTime.Now.Add(_options.MetadataRefreshInterval);
             }
             catch (Exception exception)
             {

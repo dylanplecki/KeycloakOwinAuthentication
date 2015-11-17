@@ -85,19 +85,8 @@ namespace Owin.Security.Keycloak.Middleware
             Options.KeycloakUrl = NormalizeUrl(Options.KeycloakUrl);
             Options.CallbackPath = NormalizeUrlPath(Options.CallbackPath);
 
-            if (!Uri.IsWellFormedUriString(Options.KeycloakUrl, UriKind.Absolute))
-                ThrowInvalidOption(nameof(Options.KeycloakUrl));
-            if (!Uri.IsWellFormedUriString(Options.CallbackPath, UriKind.Relative))
-                ThrowInvalidOption(nameof(Options.CallbackPath));
-            if (Options.PostLogoutRedirectUrl != null &&
-                !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
-                ThrowInvalidOption(nameof(Options.PostLogoutRedirectUrl));
-
             // Final parameter validation
-            if (!KeycloakIdentity.ValidateParameters(Options))
-                throw new Exception(
-                    $"KeycloakAuthenticationOptions: Keycloak instance '{authType}' contains invalid options; " +
-                    "This is most like an HTTP error when requesting metadata from the Keycloak server");
+            KeycloakIdentity.ValidateParameters(Options);
         }
 
         private static string NormalizeUrl(string url)

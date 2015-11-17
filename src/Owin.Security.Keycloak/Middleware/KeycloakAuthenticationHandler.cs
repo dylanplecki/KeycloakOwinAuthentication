@@ -7,7 +7,6 @@ using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using KeycloakIdentityModel;
-using KeycloakIdentityModel.Models.Messages;
 using KeycloakIdentityModel.Models.Responses;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
@@ -66,13 +65,6 @@ namespace Owin.Security.Keycloak.Middleware
 
                 try
                 {
-                    // Check for errors
-                    authResult.ThrowIfError();
-
-                    // Start verification process async
-                    var message = new RequestAccessTokenMessage(Request.Uri, Options, authResult);
-                    var messageTask = message.ExecuteAsync();
-
                     // Validate passed state
                     var stateData = Global.StateCache.ReturnState(authResult.State);
                     if (stateData == null)
@@ -84,7 +76,7 @@ namespace Owin.Security.Keycloak.Middleware
                         new AuthenticationProperties();
 
                     // Process response
-                    var kcIdentity = await KeycloakIdentity.ConvertFromTokenResponseAsync(Options, await messageTask);
+                    var kcIdentity = await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
                     var identity = await kcIdentity.ToClaimsIdentityAsync();
                     SignInAsAuthentication(identity, properties);
                     Context.Authentication.User.AddIdentity(identity);
@@ -182,7 +174,7 @@ namespace Owin.Security.Keycloak.Middleware
             Context.Authentication.SignIn(authProperties, signInIdentity);
         }
 
-        internal async Task ValidateSignInAsIdentities()
+        private async Task ValidateSignInAsIdentities()
         {
             foreach (var origIdentity in Context.Authentication.User.Identities)
             {

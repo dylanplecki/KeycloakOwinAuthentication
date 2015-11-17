@@ -127,14 +127,6 @@ namespace Owin.Security.Keycloak
         public bool ForceBearerTokenAuth { get; set; } = false;
 
         /// <summary>
-        ///     OPTIONAL.ADV: Automatically refresh user tokens upon expiration
-        /// </summary>
-        /// <remarks>
-        ///     - Default: True
-        /// </remarks>
-        public bool AutoTokenRefresh { get; set; } = true;
-
-        /// <summary>
         ///     OPTIONAL.ADV: Whether to check for valid token signatures before accepting
         /// </summary>
         /// <remarks>
@@ -189,13 +181,13 @@ namespace Owin.Security.Keycloak
         public bool UseRemoteTokenValidation { get; set; } = false;
 
         /// <summary>
-        ///     OPTIONAL.ADV: The interval in seconds for the OIDC metadata to refresh
+        ///     OPTIONAL.ADV: The time interval for the OIDC metadata to refresh
         /// </summary>
         /// <remarks>
-        ///     - User -1 for no refreshing, and 0 to always refresh
-        ///     - Default: 3600 seconds (60 minutes)
+        ///     - User TimeSpace.MaxValue for no refreshing, and TimeSpace.Zero to always refresh
+        ///     - Default: 60 minutes
         /// </remarks>
-        public int MetadataRefreshInterval { get; set; } = 3600;
+        public TimeSpan MetadataRefreshInterval { get; set; } = TimeSpan.FromMinutes(60);
 
         public string CallbackPath { get; set; }
         public string ResponseType { get; set; }
