@@ -56,9 +56,8 @@ namespace Owin.Security.Keycloak.Middleware
                 await ValidateSignInAsIdentities();
 
             // Check for valid callback URI
-            if (!Options.ForceBearerTokenAuth &&
-                Request.Uri.GetLeftPart(UriPartial.Path) ==
-                KeycloakIdentity.GenerateLoginCallbackUriAsync(Options, Request.Uri).ToString())
+            var callbackUri = await KeycloakIdentity.GenerateLoginCallbackUriAsync(Options, Request.Uri);
+            if (!Options.ForceBearerTokenAuth && Request.Uri.GetLeftPart(UriPartial.Path) == callbackUri.ToString())
             {
                 // Create authorization result from query
                 var authResult = new AuthorizationResponse(Request.Uri.Query);
@@ -76,7 +75,8 @@ namespace Owin.Security.Keycloak.Middleware
                         new AuthenticationProperties();
 
                     // Process response
-                    var kcIdentity = await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
+                    var kcIdentity =
+                        await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
                     var identity = await kcIdentity.ToClaimsIdentityAsync();
                     SignInAsAuthentication(identity, properties);
                     Context.Authentication.User.AddIdentity(identity);

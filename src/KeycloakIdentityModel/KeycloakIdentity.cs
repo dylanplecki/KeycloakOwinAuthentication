@@ -339,8 +339,6 @@ namespace KeycloakIdentityModel
                 throw new ArgumentNullException(nameof(parameters.Scope));
             if (string.IsNullOrWhiteSpace(parameters.CallbackPath))
                 throw new ArgumentNullException(nameof(parameters.CallbackPath));
-            if (string.IsNullOrWhiteSpace(parameters.PostLogoutRedirectUrl))
-                throw new ArgumentNullException(nameof(parameters.PostLogoutRedirectUrl));
 
             // Validate other parameters
             if (!Uri.IsWellFormedUriString(parameters.KeycloakUrl, UriKind.Absolute))
@@ -352,7 +350,7 @@ namespace KeycloakIdentityModel
                 !Uri.IsWellFormedUriString(parameters.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
                 throw new ArgumentException(nameof(parameters.PostLogoutRedirectUrl));
 
-            // Attempt to refresh OIDC metadata from endpoint (on seperate thread)
+            // Attempt to refresh OIDC metadata from endpoint (on separate thread)
             try
             {
                 Task.Run(() => OidcDataManager.GetCachedContextAsync(parameters)).Wait();
