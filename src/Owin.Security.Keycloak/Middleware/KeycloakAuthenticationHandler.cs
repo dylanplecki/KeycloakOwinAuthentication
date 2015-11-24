@@ -78,8 +78,8 @@ namespace Owin.Security.Keycloak.Middleware
                     var kcIdentity =
                         await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
                     var identity = await kcIdentity.ToClaimsIdentityAsync();
-                    SignInAsAuthentication(identity, properties);
                     Context.Authentication.User.AddIdentity(identity);
+                    SignInAsAuthentication(identity, properties, Options.SignInAsAuthenticationType);
 
                     // Redirect back to the original secured resource, if any
                     if (!string.IsNullOrWhiteSpace(properties.RedirectUri) &&
@@ -183,7 +183,7 @@ namespace Owin.Security.Keycloak.Middleware
                     if (!origIdentity.HasClaim(Constants.ClaimTypes.AuthenticationType, Options.AuthenticationType))
                         continue;
                     var kcIdentity = await KeycloakIdentity.ConvertFromClaimsIdentityAsync(Options, origIdentity);
-                    if (kcIdentity.IsAuthenticated) continue;
+                    if (!kcIdentity.IsTouched) continue;
 
                     // Replace identity if expired
                     var identity = await kcIdentity.ToClaimsIdentityAsync();

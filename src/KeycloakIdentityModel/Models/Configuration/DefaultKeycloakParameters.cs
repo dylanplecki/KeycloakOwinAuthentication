@@ -16,7 +16,7 @@ namespace KeycloakIdentityModel.Models.Configuration
         public bool AllowUnsignedTokens { get; set; } = false;
         public bool DisableIssuerValidation { get; set; } = false;
         public bool DisableAudienceValidation { get; set; } = false;
-        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(5);
+        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(1);
         public bool UseRemoteTokenValidation { get; set; } = false;
         public TimeSpan MetadataRefreshInterval { get; set; } = TimeSpan.FromMinutes(60);
         public string CallbackPath { get; set; }

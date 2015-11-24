@@ -164,9 +164,9 @@ namespace Owin.Security.Keycloak
         ///     OPTIONAL.ADV: The maximum grace time span for expired tokens to be accepted
         /// </summary>
         /// <remarks>
-        ///     - Default: 5 seconds
+        ///     - Default: 2 seconds
         /// </remarks>
-        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(5);
+        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(2);
 
         /// <summary>
         ///     OPTIONAL.ADV: Whether to enable token validation via the Keycloak server

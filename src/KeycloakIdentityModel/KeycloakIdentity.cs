@@ -54,6 +54,11 @@ namespace KeycloakIdentityModel
         public override bool IsAuthenticated => _kcClaims != null && _accessToken.ValidTo > DateTime.Now;
 
         /// <summary>
+        ///     Gets a value that indicates whether the identity has been updated since its instantiation
+        /// </summary>
+        public bool IsTouched { get; private set; }
+
+        /// <summary>
         ///     Gets the claims associated with this claims identity
         /// </summary>
         public override IEnumerable<Claim> Claims
@@ -173,14 +178,18 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="claims"></param>
         /// <returns></returns>
-        public static async Task<KeycloakIdentity> ConvertFromClaimsAsync(IKeycloakParameters parameters,
+        public static Task<KeycloakIdentity> ConvertFromClaimsAsync(IKeycloakParameters parameters,
             IEnumerable<Claim> claims)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (claims == null) throw new ArgumentNullException(nameof(claims));
-            var kcIdentity = new KeycloakIdentity(parameters);
-            await kcIdentity.ImportClaims(claims);
-            return kcIdentity;
+
+            var claimLookup = claims.ToLookup(c => c.Type, c => c.Value);
+            var idToken = claimLookup[Constants.ClaimTypes.IdToken].FirstOrDefault();
+            var accessToken = claimLookup[Constants.ClaimTypes.AccessToken].FirstOrDefault();
+            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+
+            return ConvertFromJwtAsync(parameters, accessToken, refreshToken, idToken);
         }
 
         /// <summary>
@@ -189,15 +198,12 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        public static async Task<KeycloakIdentity> ConvertFromTokenResponseAsync(IKeycloakParameters parameters,
+        public static Task<KeycloakIdentity> ConvertFromTokenResponseAsync(IKeycloakParameters parameters,
             TokenResponse message)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (message == null) throw new ArgumentNullException(nameof(message));
-
-            var kcIdentity = new KeycloakIdentity(parameters);
-            await kcIdentity.ImportTokenResponse(message);
-            return kcIdentity;
+            return ConvertFromJwtAsync(parameters, message.AccessToken, message.RefreshToken, message.IdToken);
         }
 
         /// <summary>
@@ -234,7 +240,15 @@ namespace KeycloakIdentityModel
             if (accessToken == null) throw new ArgumentNullException(nameof(accessToken));
 
             var kcIdentity = new KeycloakIdentity(parameters);
-            await kcIdentity.ImportJwt(accessToken, refreshToken, idToken);
+            try
+            {
+                await kcIdentity.CopyFromJwt(accessToken, refreshToken, idToken);
+            }
+            catch (SecurityTokenExpiredException)
+            {
+                // Load new identity from token endpoint via refresh token (if possible)
+                await kcIdentity.RefreshIdentity(refreshToken);
+            }
             return kcIdentity;
         }
 
@@ -364,79 +378,6 @@ namespace KeycloakIdentityModel
 
         #endregion
 
-        #region Import Methods
-
-        /// <summary>
-        ///     Import a new identity from a ClaimsIdentity
-        /// </summary>
-        /// <param name="claims"></param>
-        /// <returns></returns>
-        protected Task ImportClaims(IEnumerable<Claim> claims)
-        {
-            var claimLookup = claims.ToLookup(c => c.Type, c => c.Value);
-
-            var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
-            var idToken = claimLookup[Constants.ClaimTypes.IdToken].FirstOrDefault();
-            var accessToken = claimLookup[Constants.ClaimTypes.AccessToken].FirstOrDefault();
-
-            return ImportJwt(accessToken, idToken, refreshToken);
-        }
-
-        /// <summary>
-        ///     Import a new identity from a TokenResponse message
-        /// </summary>
-        /// <param name="message"></param>
-        /// <returns></returns>
-        protected Task ImportTokenResponse(TokenResponse message)
-        {
-            return ImportJwt(message.AccessToken, message.IdToken, message.RefreshToken);
-        }
-
-        /// <summary>
-        ///     Import a new identity from a set of JWTs
-        /// </summary>
-        /// <param name="accessToken"></param>
-        /// <param name="idToken"></param>
-        /// <param name="refreshToken"></param>
-        /// <returns></returns>
-        protected async Task ImportJwt(string accessToken, string refreshToken = null, string idToken = null)
-        {
-            if (accessToken == null) throw new ArgumentException(nameof(accessToken));
-
-            // Validate JWTs provided
-            var tokenHandler = new KeycloakTokenHandler();
-            var uriManager = await OidcDataManager.GetCachedContextAsync(_parameters);
-
-            SecurityToken accessSecurityToken, idSecurityToken = null, refreshSecurityToken = null;
-
-            if (_parameters.UseRemoteTokenValidation)
-            {
-                accessSecurityToken = await KeycloakTokenHandler.ValidateTokenRemote(accessToken, uriManager);
-            }
-            else
-            {
-                accessSecurityToken = tokenHandler.ValidateToken(accessToken, _parameters, uriManager);
-            }
-
-            if (accessSecurityToken == null)
-                throw new Exception("Internal error: Invalid access token; valid required");
-
-            if (idToken != null)
-                tokenHandler.TryValidateToken(idToken, _parameters, uriManager, out idSecurityToken);
-            if (refreshToken != null)
-                tokenHandler.TryValidateToken(refreshToken, _parameters, uriManager, out refreshSecurityToken);
-
-            // Save to this object
-            // TODO: Convert to MS claims parsing in token handler
-            _kcClaims = GenerateJwtClaims(accessSecurityToken as JwtSecurityToken, idSecurityToken as JwtSecurityToken,
-                refreshSecurityToken as JwtSecurityToken);
-            _idToken = idSecurityToken as JwtSecurityToken;
-            _accessToken = accessSecurityToken as JwtSecurityToken;
-            _refreshToken = refreshSecurityToken as JwtSecurityToken;
-        }
-
-        #endregion
-
         #region Claim Generation Methods
 
         protected IEnumerable<Claim> GenerateJwtClaims(JwtSecurityToken accessToken, JwtSecurityToken idToken,
@@ -503,9 +444,7 @@ namespace KeycloakIdentityModel
                         throw new Exception("Both the access token and the refresh token have expired");
 
                     // Load new identity from token endpoint via refresh token
-                    var responseMessage =
-                        await new RefreshAccessTokenMessage(_parameters, _refreshToken.RawData).ExecuteAsync();
-                    await ImportTokenResponse(responseMessage);
+                    await RefreshIdentity(_refreshToken.RawData);
                 }
 
                 return GetCurrentClaims();
@@ -514,6 +453,51 @@ namespace KeycloakIdentityModel
             {
                 _refreshLock.Release();
             }
+        }
+
+        protected async Task CopyFromJwt(string accessToken, string refreshToken = null, string idToken = null)
+        {
+            if (accessToken == null) throw new ArgumentException(nameof(accessToken));
+
+            // Validate JWTs provided
+            var tokenHandler = new KeycloakTokenHandler();
+            var uriManager = await OidcDataManager.GetCachedContextAsync(_parameters);
+
+            SecurityToken accessSecurityToken, idSecurityToken = null, refreshSecurityToken = null;
+
+            if (_parameters.UseRemoteTokenValidation)
+            {
+                accessSecurityToken = await KeycloakTokenHandler.ValidateTokenRemote(accessToken, uriManager);
+            }
+            else
+            {
+                accessSecurityToken = tokenHandler.ValidateToken(accessToken, _parameters, uriManager);
+            }
+
+            // Double-check
+            if (accessSecurityToken == null)
+                throw new Exception("Internal error: Invalid access token; valid required");
+
+            if (idToken != null)
+                idSecurityToken = tokenHandler.ValidateToken(idToken, _parameters, uriManager);
+            if (refreshToken != null)
+                refreshSecurityToken = tokenHandler.ValidateToken(refreshToken, _parameters, uriManager);
+
+            // Save to this object
+            // TODO: Convert to MS claims parsing in token handler
+            _kcClaims = GenerateJwtClaims(accessSecurityToken as JwtSecurityToken, idSecurityToken as JwtSecurityToken,
+                refreshSecurityToken as JwtSecurityToken);
+            _idToken = idSecurityToken as JwtSecurityToken;
+            _accessToken = accessSecurityToken as JwtSecurityToken;
+            _refreshToken = refreshSecurityToken as JwtSecurityToken;
+        }
+
+        protected async Task RefreshIdentity(string refreshToken)
+        {
+            var respMessage =
+                        await new RefreshAccessTokenMessage(_parameters, refreshToken).ExecuteAsync();
+            await CopyFromJwt(respMessage.AccessToken, respMessage.RefreshToken, respMessage.IdToken);
+            IsTouched = true;
         }
 
         #endregion
