@@ -1,11 +1,11 @@
 version: '$(app_version).{build}'
-configuration: Release
+configuration: Final
 platform: Any CPU
 os: Visual Studio 2015
 
 environment:
-  app_version: '2.0.4'
-  app_version_postfix: ''
+  app_version: '2.1.0'
+  app_version_postfix: '-alpha'
 
 branches:
   except:
@@ -19,13 +19,13 @@ nuget:
 
 install:
   - SET app_version_informational=%app_version%%app_version_postfix%
-  - echo Building Owin.Security.Keycloak Version %app_version_informational% ...
+  - echo Building Keycloak Owin Authentication Version %app_version_informational% ...
 
 before_build:
   - nuget restore src\KeycloakOwinAuthentication.sln
 
 build:
-  project: src\Owin.Security.Keycloak\Owin.Security.Keycloak.csproj
+  project: src\KeycloakOwinAuthentication.sln
   publish_nuget: true
   publish_nuget_symbols: true
   include_nuget_references: true
@@ -60,6 +60,6 @@ deploy:
       secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
     artifact: /.*\.nupkg/
     draft: false
-    prerelease: false
+    prerelease: true
     on:
       branch: master

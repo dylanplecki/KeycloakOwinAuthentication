@@ -13,6 +13,6 @@
     <description>$description$</description>
     <releaseNotes>See https://github.com/dylanplecki/KeycloakOwinAuthentication/releases</releaseNotes>
     <copyright>Copyright 2015</copyright>
-    <tags>keycloak identitymodel identity model authentication keycloaknet</tags>
+    <tags>keycloak identity identitymodel keycloakmodel keycloakidentity</tags>
   </metadata>
 </package>

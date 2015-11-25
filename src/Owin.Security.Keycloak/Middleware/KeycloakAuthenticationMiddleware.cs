@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Threading.Tasks;
+using KeycloakIdentityModel;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Internal;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -58,7 +57,7 @@ namespace Owin.Security.Keycloak.Middleware
             if (string.IsNullOrWhiteSpace(Options.PostLogoutRedirectUrl))
                 Options.PostLogoutRedirectUrl = Options.VirtualDirectory;
 
-            if (string.IsNullOrEmpty(Options.SignInAsAuthenticationType))
+            if (Options.SignInAsAuthenticationType == null)
             {
                 try
                 {
@@ -66,10 +65,7 @@ namespace Owin.Security.Keycloak.Middleware
                 }
                 catch (Exception)
                 {
-                    if (Options.EnableWebApiMode)
-                        Options.SignInAsAuthenticationType = "";
-                    else
-                        throw;
+                    Options.SignInAsAuthenticationType = "";
                 }
             }
 
@@ -82,36 +78,15 @@ namespace Owin.Security.Keycloak.Middleware
             }
 
             // Validate other options
-
-            if (Options.AutoTokenRefresh && !Options.SaveTokensAsClaims)
-                Options.SaveTokensAsClaims = true;
+            
             if (Options.ForceBearerTokenAuth && !Options.EnableBearerTokenAuth)
                 Options.EnableBearerTokenAuth = true;
 
             Options.KeycloakUrl = NormalizeUrl(Options.KeycloakUrl);
             Options.CallbackPath = NormalizeUrlPath(Options.CallbackPath);
 
-            if (!Uri.IsWellFormedUriString(Options.KeycloakUrl, UriKind.Absolute))
-                ThrowInvalidOption(nameof(Options.KeycloakUrl));
-            if (!Uri.IsWellFormedUriString(Options.CallbackPath, UriKind.Relative))
-                ThrowInvalidOption(nameof(Options.CallbackPath));
-            if (Options.PostLogoutRedirectUrl != null &&
-                !Uri.IsWellFormedUriString(Options.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
-                ThrowInvalidOption(nameof(Options.PostLogoutRedirectUrl));
-
-            // Attempt to refresh OIDC metadata from endpoint (on seperate thread)
-            var uriManager = Task.Run(() => OidcDataManager.CreateCachedContext(Options, false)).Result;
-
-            try
-            {
-                Task.Run(uriManager.RefreshMetadataAsync).Wait();
-            }
-            catch (Exception exception)
-            {
-                throw new Exception(
-                    $"Cannot refresh data from the OIDC metadata address '{uriManager.MetadataEndpoint}': Check inner",
-                    exception);
-            }
+            // Final parameter validation
+            KeycloakIdentity.ValidateParameters(Options);
         }
 
         private static string NormalizeUrl(string url)

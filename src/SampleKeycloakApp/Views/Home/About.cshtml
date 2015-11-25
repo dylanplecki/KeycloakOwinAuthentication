@@ -1,0 +1,27 @@
+﻿@{
+    ViewBag.Title = "About";
+}
+<h2>@ViewBag.Title.</h2>
+<h3>@ViewBag.Message</h3>
+
+@model System.Security.Claims.ClaimsPrincipal
+
+<dl>
+    @foreach (var claim in Model.Claims)
+    {
+        <dt>@claim.Type</dt>
+        <dd>@claim.Value</dd>
+    }
+</dl>
+
+<hr />
+
+<h3>Roles.</h3>
+
+<p>
+    In Anonymous Role: @Model.IsInRole("Anonymous").ToString()
+    <br />
+    In Manager Role: @Model.IsInRole("Manager").ToString()
+    <br />
+    In Global Admin Role: @Model.IsInRole("Admin").ToString()
+</p>
