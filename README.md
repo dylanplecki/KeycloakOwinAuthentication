@@ -159,13 +159,12 @@ public bool EnableWebApiMode { get; set; } = false;
 public string SignInAsAuthenticationType { get; set; }
 
 /// <summary>
-///     OPTIONAL.ADV: Save access and ID tokens as user claims
+///     OPTIONAL.ADV: Set the expiration time for the SignInAsAuthentication method
 /// </summary>
 /// <remarks>
-///     - Forced enabled when using 'AutoTokenRefresh'
-///     - Default: True
+///     - Default: 30 minutes
 /// </remarks>
-public bool SaveTokensAsClaims { get; set; } = true;
+public TimeSpan SignInAsAuthenticationExpiration { get; set; } = TimeSpan.FromMinutes(30);
 
 /// <summary>
 ///     OPTIONAL.ADV: Allow authentication via the bearer token authorization header
@@ -185,14 +184,6 @@ public bool EnableBearerTokenAuth { get; set; } = false;
 ///     - Default: False
 /// </remarks>
 public bool ForceBearerTokenAuth { get; set; } = false;
-
-/// <summary>
-///     OPTIONAL.ADV: Automatically refresh user tokens upon expiration
-/// </summary>
-/// <remarks>
-///     - Default: True
-/// </remarks>
-public bool AutoTokenRefresh { get; set; } = true;
 
 /// <summary>
 ///     OPTIONAL.ADV: Whether to check for valid token signatures before accepting
@@ -232,9 +223,9 @@ public bool DisableAudienceValidation { get; set; } = false;
 ///     OPTIONAL.ADV: The maximum grace time span for expired tokens to be accepted
 /// </summary>
 /// <remarks>
-///     - Default: 5 seconds
+///     - Default: 2 seconds
 /// </remarks>
-public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(5);
+public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(2);
 
 /// <summary>
 ///     OPTIONAL.ADV: Whether to enable token validation via the Keycloak server
@@ -249,13 +240,13 @@ public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(5);
 public bool UseRemoteTokenValidation { get; set; } = false;
 
 /// <summary>
-///     OPTIONAL.ADV: The interval in seconds for the OIDC metadata to refresh
+///     OPTIONAL.ADV: The time interval for the OIDC metadata to refresh
 /// </summary>
 /// <remarks>
-///     - User -1 for no refreshing, and 0 to always refresh
-///     - Default: 3600 seconds (60 minutes)
+///     - User TimeSpace.MaxValue for no refreshing, and TimeSpace.Zero to always refresh
+///     - Default: 60 minutes
 /// </remarks>
-public int MetadataRefreshInterval { get; set; } = 3600;
+public TimeSpan MetadataRefreshInterval { get; set; } = TimeSpan.FromMinutes(60);
 ```
 
 ## Issues & Requests
