@@ -60,6 +60,6 @@ deploy:
       secure: dGCvff0hrYX1dStYv8MUNRzuDsaABTOQvMZuhB4dCJ39G0koh9FaAqPf1rIICWy3
     artifact: /.*\.nupkg/
     draft: false
-    prerelease: false
+    prerelease: true
     on:
       branch: master
