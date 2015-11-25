@@ -1,5 +1,5 @@
 version: '$(app_version).{build}'
-configuration: Release
+configuration: Final
 platform: Any CPU
 os: Visual Studio 2015
 
