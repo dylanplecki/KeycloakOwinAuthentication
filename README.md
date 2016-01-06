@@ -41,7 +41,7 @@ namespace Sample.KeycloakAuth
     {
         public void Configuration(IAppBuilder app)
         {
-            const string persistentAuthType = "keycloak_cookies"; // Or name it whatever you want
+            const string persistentAuthType = "keycloak_cookies"; // Or name it whatever you want, make sure to make this name unique to your app. If you use the same name on multiple different apps debugging on the same computer you might run into issues.
 
             app.UseCookieAuthentication(new CookieAuthenticationOptions
             {
