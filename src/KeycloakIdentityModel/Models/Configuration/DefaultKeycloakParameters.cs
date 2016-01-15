@@ -1,17 +1,13 @@
 ﻿using System;
-using KeycloakIdentityModel.Models.Configuration;
-using Microsoft.Owin.Security;
 
-namespace Owin.Security.Keycloak
+namespace KeycloakIdentityModel.Models.Configuration
 {
-    public class KeycloakAuthenticationOptions : AuthenticationOptions, IKeycloakParameters
+    public class DefaultKeycloakParameters : IKeycloakParameters
     {
-        private const string DefaultAuthenticationType = "KeycloakAuthentication";
-
-        public KeycloakAuthenticationOptions()
-            : base(DefaultAuthenticationType)
-        {
-        }
+        /// <summary>
+        ///     Unique authentication type identifier
+        /// </summary>
+        public string AuthenticationType { get; set; }
 
         /// <summary>
         ///     Defines the entire URL to the Keycloak instance
@@ -70,63 +66,6 @@ namespace Owin.Security.Keycloak
         public string PostLogoutRedirectUrl { get; set; }
 
         /// <summary>
-        ///     OPTIONAL: Defines the virtual root of the current application
-        /// </summary>
-        /// <remarks>
-        ///     - For instance, if using a virtual directory in IIS such as "/secure",
-        ///     this option would be "/secure"
-        ///     - Default: "/"
-        /// </remarks>
-        public string VirtualDirectory { get; set; }
-
-        /// <summary>
-        ///     OPTIONAL: Whether to use the Web API authentication mode via bearer tokens
-        ///     in the authentication header instead of interactive logins
-        /// </summary>
-        /// <remarks>
-        ///     - This will auto-enable 'EnableBearerTokenAuth' and 'ForceBearerTokenAuth',
-        ///     both of which cannot be switched off in this mode
-        ///     - Default: False
-        /// </remarks>
-        public bool EnableWebApiMode { get; set; } = false;
-
-        /// <summary>
-        ///     OPTIONAL: The persistent sign-in mechanism used by the extension
-        /// </summary>
-        /// <remarks>
-        ///     - Required for any session-based usage
-        ///     - Default: Null
-        /// </remarks>
-        public string SignInAsAuthenticationType { get; set; }
-
-        /// <summary>
-        ///     OPTIONAL.ADV: Set the expiration time for the SignInAsAuthentication method
-        /// </summary>
-        /// <remarks>
-        ///     - Default: 30 minutes
-        /// </remarks>
-        public TimeSpan SignInAsAuthenticationExpiration { get; set; } = TimeSpan.FromMinutes(30);
-
-        /// <summary>
-        ///     OPTIONAL.ADV: Allow authentication via the bearer token authorization header
-        /// </summary>
-        /// <remarks>
-        ///     - Forced enabled when using 'ForceBearerTokenAuth'
-        ///     - Default: False
-        /// </remarks>
-        public bool EnableBearerTokenAuth { get; set; } = false;
-
-        /// <summary>
-        ///     OPTIONAL.ADV: Force all authentication to be done via 'BearerTokenAuth' (above)
-        /// </summary>
-        /// <remarks>
-        ///     - If an inbound request does not present a valid bearer token,
-        ///     a 403 error will be issued.
-        ///     - Default: False
-        /// </remarks>
-        public bool ForceBearerTokenAuth { get; set; } = false;
-
-        /// <summary>
         ///     OPTIONAL.ADV: Whether to check for valid token signatures before accepting
         /// </summary>
         /// <remarks>
@@ -166,7 +105,7 @@ namespace Owin.Security.Keycloak
         /// <remarks>
         ///     - Default: 2 seconds
         /// </remarks>
-        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(2);
+        public TimeSpan TokenClockSkew { get; set; } = TimeSpan.FromSeconds(1);
 
         /// <summary>
         ///     OPTIONAL.ADV: Whether to enable token validation via the Keycloak server

@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 
-[assembly: AssemblyTitle("Keycloak OWIN Authentication")]
-[assembly: AssemblyDescription("Keycloak Authentication Middleware for ASP.NET OWIN")]
+[assembly: AssemblyTitle("Keycloak Identity Model")]
+[assembly: AssemblyDescription("Identity Model and Helpers for Keycloak Integration")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Redhat")]
 [assembly: AssemblyProduct("JBoss Keycloak")]
@@ -22,7 +22,7 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 
-[assembly: Guid("fcac3105-3e81-49c4-9d8e-0fc9e608e87c")]
+[assembly: Guid("fa6dddd7-366a-4012-acf2-252c599f80c0")]
 
 // Version information for an assembly consists of the following four values:
 //

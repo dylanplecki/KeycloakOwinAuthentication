@@ -1,18 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IdentityModel;
 using System.Linq;
 using System.Net;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using KeycloakIdentityModel;
+using KeycloakIdentityModel.Models.Responses;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
-using Owin.Security.Keycloak.Internal;
-using Owin.Security.Keycloak.Models.Messages;
-using Owin.Security.Keycloak.Models.Responses;
 
 namespace Owin.Security.Keycloak.Middleware
 {
@@ -20,43 +18,6 @@ namespace Owin.Security.Keycloak.Middleware
     {
         protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
-            // Get and refresh context-based OIDC manager
-            var uriManager = OidcDataManager.GetCachedContext(Options);
-
-            // Check for valid callback URI
-            if (Request.Uri.GetLeftPart(UriPartial.Path) == uriManager.GetCallbackUri(Request.Uri).ToString())
-            {
-                // Create authorization result from query
-                var authResult = new AuthorizationResponse(Request.Uri.Query);
-
-                try
-                {
-                    // Check for errors
-                    authResult.ThrowIfError();
-
-                    // Process response
-                    var message = new RequestAccessTokenMessage(Request, Options, authResult);
-                    return await message.ExecuteAsync();
-                }
-                catch (BadRequestException exception)
-                {
-                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request", exception.Message);
-                    return null;
-                }
-            }
-
-            return null;
-        }
-
-        public override async Task<bool> InvokeAsync()
-        {
-            // Validate and refresh context-based OIDC manager for the current request
-            await OidcDataManager.ValidateCachedContextAsync(Options);
-
-            // Check SignInAs identity for authentication update
-            if (Context.Authentication.User.Identity.IsAuthenticated)
-                await ValidateSignInAsIdentity();
-
             // Bearer token authentication override
             if (Options.EnableBearerTokenAuth)
             {
@@ -69,10 +30,10 @@ namespace Owin.Security.Keycloak.Middleware
                         try
                         {
                             var authResponse = new TokenResponse(bearerAuthArr[1], null, null);
-                            var kcIdentity = new KeycloakIdentity(authResponse);
-                            var identity = await kcIdentity.ValidateIdentity(Options, Options.AuthenticationType);
-                            Context.Authentication.User = new ClaimsPrincipal(identity);
-                            return false;
+                            var kcIdentity = await KeycloakIdentity.ConvertFromTokenResponseAsync(Options, authResponse);
+                            var identity = await kcIdentity.ToClaimsIdentityAsync();
+                            SignInAsAuthentication(identity, null, Options.SignInAsAuthenticationType);
+                            return new AuthenticationTicket(identity, new AuthenticationProperties());
                         }
                         catch (Exception)
                         {
@@ -82,39 +43,57 @@ namespace Owin.Security.Keycloak.Middleware
                 }
 
                 // If bearer token auth is forced, skip standard auth
-                if (Options.ForceBearerTokenAuth) return false;
+                if (Options.ForceBearerTokenAuth) return null;
             }
 
-            // Core authentication mechanism
-            var ticket = await AuthenticateAsync();
-            if (ticket == null) return false;
+            return null;
+        }
 
-            if (ticket.Identity != null)
+        public override async Task<bool> InvokeAsync()
+        {
+            // Check SignInAs identity for authentication update
+            if (Context.Authentication.User.Identity.IsAuthenticated)
+                await ValidateSignInAsIdentities();
+
+            // Check for valid callback URI
+            var callbackUri = await KeycloakIdentity.GenerateLoginCallbackUriAsync(Options, Request.Uri);
+            if (!Options.ForceBearerTokenAuth && Request.Uri.GetLeftPart(UriPartial.Path) == callbackUri.ToString())
             {
-                // Parse expiration date-time
-                DateTime expDate;
-                var expTimestamp =
-                    ticket.Identity.Claims.FirstOrDefault(c => c.Type == Constants.ClaimTypes.RefreshTokenExpiration);
+                // Create authorization result from query
+                var authResult = new AuthorizationResponse(Request.Uri.Query);
 
-                if (expTimestamp != null && DateTime.TryParse(expTimestamp.Value, out expDate))
-                    expDate = expDate.Add(Options.TokenClockSkew);
-                else
-                    expDate = DateTime.Now.AddHours(2); // Fallback
-
-                Context.Authentication.User = new ClaimsPrincipal(ticket.Identity);
-                Context.Authentication.SignIn(new AuthenticationProperties
+                try
                 {
-                    AllowRefresh = true,
-                    IsPersistent = true,
-                    ExpiresUtc = expDate
-                }, ticket.Identity);
-            }
+                    // Validate passed state
+                    var stateData = Global.StateCache.ReturnState(authResult.State);
+                    if (stateData == null)
+                        throw new BadRequestException("Invalid state: Please reattempt the request");
 
-            // Redirect back to the original secured resource, if any
-            if (!string.IsNullOrWhiteSpace(ticket.Properties.RedirectUri))
-            {
-                Response.Redirect(ticket.Properties.RedirectUri);
-                return true;
+                    // Parse properties from state data
+                    var properties =
+                        stateData[Constants.CacheTypes.AuthenticationProperties] as AuthenticationProperties ??
+                        new AuthenticationProperties();
+
+                    // Process response
+                    var kcIdentity =
+                        await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
+                    var identity = await kcIdentity.ToClaimsIdentityAsync();
+                    Context.Authentication.User.AddIdentity(identity);
+                    SignInAsAuthentication(identity, properties, Options.SignInAsAuthenticationType);
+
+                    // Redirect back to the original secured resource, if any
+                    if (!string.IsNullOrWhiteSpace(properties.RedirectUri) &&
+                        Uri.IsWellFormedUriString(properties.RedirectUri, UriKind.Absolute))
+                    {
+                        Response.Redirect(properties.RedirectUri);
+                        return true;
+                    }
+                }
+                catch (BadRequestException exception)
+                {
+                    await GenerateErrorResponseAsync(HttpStatusCode.BadRequest, "Bad Request", exception.Message);
+                    return true;
+                }
             }
 
             return false;
@@ -126,6 +105,7 @@ namespace Owin.Security.Keycloak.Middleware
 
             var signout = Helper.LookupSignOut(Options.AuthenticationType, Options.AuthenticationMode);
 
+            // Signout takes precedence
             if (signout != null)
             {
                 await LogoutRedirectAsync(signout.Properties);
@@ -152,100 +132,73 @@ namespace Owin.Security.Keycloak.Middleware
             }
         }
 
-        #region OIDC Helper Functions
+        #region Private Helper Functions
 
-        private async Task LoginRedirectAsync(AuthenticationProperties properties)
+        private void SignInAsAuthentication(ClaimsIdentity identity, AuthenticationProperties authProperties = null,
+            string signInAuthType = null)
         {
-            if (string.IsNullOrEmpty(properties.RedirectUri))
+            if (signInAuthType == Options.AuthenticationType) return;
+
+            var signInIdentity = signInAuthType != null
+                ? new ClaimsIdentity(identity.Claims, signInAuthType, identity.NameClaimType, identity.RoleClaimType)
+                : identity;
+
+            if (string.IsNullOrWhiteSpace(signInIdentity.AuthenticationType)) return;
+
+            if (authProperties == null)
             {
-                properties.RedirectUri = Request.Uri.ToString();
+                authProperties = new AuthenticationProperties
+                {
+                    // TODO: Make these configurable
+                    AllowRefresh = true,
+                    IsPersistent = true,
+                    ExpiresUtc = DateTime.Now.Add(Options.SignInAsAuthenticationExpiration)
+                };
             }
 
-            // Create state
-            var stateData = new Dictionary<string, object>
+            // Parse expiration date-time
+            var expirations = new List<string>
             {
-                {Constants.CacheTypes.AuthenticationProperties, properties}
+                identity.Claims.FirstOrDefault(c => c.Type == Constants.ClaimTypes.RefreshTokenExpiration)?.Value,
+                identity.Claims.FirstOrDefault(c => c.Type == Constants.ClaimTypes.AccessTokenExpiration)?.Value
             };
-            var state = Global.StateCache.CreateState(stateData);
 
-            // Generate login URI and data
-            var uriManager = OidcDataManager.GetCachedContext(Options);
-            var loginParams = uriManager.BuildAuthorizationEndpointContent(Request.Uri, state);
-            var loginUrl = uriManager.GetAuthorizationEndpoint();
-
-            // Redirect response to login
-            var loginQueryString = await loginParams.ReadAsStringAsync();
-            Response.Redirect(loginUrl + (!string.IsNullOrEmpty(loginQueryString) ? "?" + loginQueryString : ""));
-        }
-
-        private async Task LogoutRedirectAsync(AuthenticationProperties properties)
-        {
-            // Generate logout URI and data
-            var uriManager = OidcDataManager.GetCachedContext(Options);
-            var logoutParams = uriManager.BuildEndSessionEndpointContent(Request.Uri, null, properties.RedirectUri);
-            var logoutUrl = uriManager.GetEndSessionEndpoint();
-
-            // Redirect response to logout
-            var logoutQueryString = await logoutParams.ReadAsStringAsync();
-            Response.Redirect(logoutUrl + (!string.IsNullOrEmpty(logoutQueryString) ? "?" + logoutQueryString : ""));
-        }
-
-        internal async Task ValidateSignInAsIdentity()
-        {
-            var origIdentity = Context.Authentication.User.Identities.FirstOrDefault();
-            if (origIdentity == null) return;
-
-            try
+            foreach (var expStr in expirations)
             {
-                var claimLookup = origIdentity.Claims.ToLookup(c => c.Type, c => c.Value);
+                DateTime expDate;
+                if (expStr == null || !DateTime.TryParse(expStr, out expDate)) continue;
+                authProperties.ExpiresUtc = expDate.Add(Options.TokenClockSkew);
+                break;
+            }
 
-                var version = claimLookup[Constants.ClaimTypes.Version].FirstOrDefault();
-                var authType = claimLookup[Constants.ClaimTypes.AuthenticationType].FirstOrDefault();
-                var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
+            Context.Authentication.SignIn(authProperties, signInIdentity);
+        }
 
-                var accessTokenExpiration =
-                    claimLookup[Constants.ClaimTypes.AccessTokenExpiration].FirstOrDefault();
-                var refreshTokenExpiration =
-                    claimLookup[Constants.ClaimTypes.RefreshTokenExpiration].FirstOrDefault();
-                var refreshTokenExpDate = DateTime.Parse(refreshTokenExpiration, CultureInfo.InvariantCulture);
-
-                // Require re-login if cookie is invalid, refresh token expired, or new auth assembly version
-                if (refreshToken == null || authType == null || version == null || accessTokenExpiration == null ||
-                    refreshTokenExpiration == null || refreshTokenExpDate <= DateTime.Now ||
-                    !Global.CheckVersion(version))
+        private async Task ValidateSignInAsIdentities()
+        {
+            foreach (var origIdentity in Context.Authentication.User.Identities)
+            {
+                try
                 {
-                    throw new AuthenticationException();
-                }
+                    if (!origIdentity.HasClaim(Constants.ClaimTypes.AuthenticationType, Options.AuthenticationType))
+                        continue;
+                    var kcIdentity = await KeycloakIdentity.ConvertFromClaimsIdentityAsync(Options, origIdentity);
+                    if (!kcIdentity.IsTouched) continue;
 
-                // Get new access token if expired
-                if (DateTime.Parse(accessTokenExpiration, CultureInfo.InvariantCulture) <= DateTime.Now)
-                {
-                    KeycloakAuthenticationOptions options;
-                    if (!Global.KeycloakOptionStore.TryGetValue(authType, out options))
-                    {
-                        throw new AuthenticationException();
-                    }
-
-                    var message = new RefreshAccessTokenMessage(Context.Request, options, refreshToken);
-                    var identity = await message.ExecuteAsync();
+                    // Replace identity if expired
+                    var identity = await kcIdentity.ToClaimsIdentityAsync();
                     Context.Authentication.User = new ClaimsPrincipal(identity);
-                    Context.Authentication.SignIn(
-                        new AuthenticationProperties
-                        {
-                            AllowRefresh = true,
-                            IsPersistent = true,
-                            ExpiresUtc = refreshTokenExpDate.Add(Options.TokenClockSkew)
-                        }, identity);
+                    SignInAsAuthentication(identity, null, Options.SignInAsAuthenticationType);
                 }
-            }
-            catch (AuthenticationException)
-            {
-                Context.Authentication.SignOut(origIdentity.AuthenticationType);
-            }
-            catch (Exception)
-            {
-                // TODO: Some kind of exception logging, maybe log the user out
-                throw;
+                catch (AuthenticationException)
+                {
+                    Context.Authentication.SignOut(origIdentity.AuthenticationType);
+                }
+                catch (Exception)
+                {
+                    // TODO: Some kind of exception logging, maybe log the user out
+                    throw;
+                }
             }
         }
 
@@ -269,6 +222,36 @@ namespace Owin.Security.Keycloak.Middleware
             response.ReasonPhrase = reasonPhrase;
             response.ContentType = "text/plain";
             await task;
+        }
+
+        #endregion
+
+        #region OIDC Helper Functions
+
+        private async Task LoginRedirectAsync(AuthenticationProperties properties)
+        {
+            if (string.IsNullOrEmpty(properties.RedirectUri))
+            {
+                properties.RedirectUri = Request.Uri.ToString();
+            }
+
+            // Create state
+            var stateData = new Dictionary<string, object>
+            {
+                {Constants.CacheTypes.AuthenticationProperties, properties}
+            };
+            var state = Global.StateCache.CreateState(stateData);
+
+            // Redirect response to login
+            Response.Redirect((await KeycloakIdentity.GenerateLoginUriAsync(Options, Request.Uri, state)).ToString());
+        }
+
+        private async Task LogoutRedirectAsync(AuthenticationProperties properties)
+        {
+            // Redirect response to logout
+            Response.Redirect(
+                (await KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri, new Uri(properties.RedirectUri)))
+                    .ToString());
         }
 
         #endregion
