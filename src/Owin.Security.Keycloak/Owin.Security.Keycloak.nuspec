@@ -12,7 +12,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <releaseNotes>See https://github.com/dylanplecki/KeycloakOwinAuthentication/releases</releaseNotes>
-    <copyright>Copyright 2015</copyright>
-    <tags>keycloak identitymodel identity model authentication keycloaknet</tags>
+    <copyright>Copyright 2016</copyright>
+    <tags>keycloak identitymodel identity model authentication keycloaknet aspnet4</tags>
   </metadata>
 </package>
