@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 
-[assembly: AssemblyTitle("Keycloak OWIN Authentication")]
-[assembly: AssemblyDescription("Keycloak Authentication Middleware for ASP.NET OWIN")]
+[assembly: AssemblyTitle("Keycloak Authentication [ASP.NET 4]")]
+[assembly: AssemblyDescription("ASP.NET 4 VERSION - JBoss Keycloak Authentication Middleware for ASP.NET 4 OWIN")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Redhat")]
 [assembly: AssemblyProduct("JBoss Keycloak")]
-[assembly: AssemblyCopyright("Copyright © 2015")]
+[assembly: AssemblyCopyright("Copyright © 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

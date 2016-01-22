@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 
 [assembly: AssemblyTitle("Keycloak Identity Model")]
-[assembly: AssemblyDescription("Identity Model and Helpers for Keycloak Integration")]
+[assembly: AssemblyDescription("Identity Model and Helpers for JBoss Keycloak Authentication Integration")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Redhat")]
 [assembly: AssemblyProduct("JBoss Keycloak")]
-[assembly: AssemblyCopyright("Copyright © 2015")]
+[assembly: AssemblyCopyright("Copyright © 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
