@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IdentityModel;
 using System.Linq;
 using System.Net;
@@ -108,7 +109,7 @@ namespace Owin.Security.Keycloak.Middleware
             // Signout takes precedence
             if (signout != null)
             {
-                await LogoutRedirectAsync(signout.Properties);
+                await LogoutRedirectAsync();
             }
         }
 
@@ -166,7 +167,9 @@ namespace Owin.Security.Keycloak.Middleware
             foreach (var expStr in expirations)
             {
                 DateTime expDate;
-                if (expStr == null || !DateTime.TryParse(expStr, out expDate)) continue;
+                if (expStr == null ||
+                    !DateTime.TryParse(expStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out expDate))
+                    continue;
                 authProperties.ExpiresUtc = expDate.Add(Options.TokenClockSkew);
                 break;
             }
@@ -194,6 +197,7 @@ namespace Owin.Security.Keycloak.Middleware
                 {
                     Context.Authentication.SignOut(origIdentity.AuthenticationType);
                 }
+                // ReSharper disable once RedundantCatchClause
                 catch (Exception)
                 {
                     // TODO: Some kind of exception logging, maybe log the user out
@@ -246,11 +250,12 @@ namespace Owin.Security.Keycloak.Middleware
             Response.Redirect((await KeycloakIdentity.GenerateLoginUriAsync(Options, Request.Uri, state)).ToString());
         }
 
-        private async Task LogoutRedirectAsync(AuthenticationProperties properties)
+        private async Task LogoutRedirectAsync()
         {
             // Redirect response to logout
             Response.Redirect(
-                (await KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri, new Uri(properties.RedirectUri)))
+                (await
+                    KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri, new Uri(Options.PostLogoutRedirectUrl)))
                     .ToString());
         }
 
