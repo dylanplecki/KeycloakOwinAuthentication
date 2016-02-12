@@ -436,8 +436,8 @@ namespace KeycloakIdentityModel
             await _refreshLock.WaitAsync();
             try
             {
-                // Check to update cached claims
-                if (_kcClaims == null || _accessToken.ValidTo <= DateTime.Now)
+                // Check to update cached claims, but not if refresh token is missing (as in bearer mode)
+                if ((_kcClaims == null || _accessToken.ValidTo <= DateTime.Now) && _refreshToken != null)
                 {
                     // Validate refresh token expiration
                     if (_refreshToken.ValidTo <= DateTime.Now)
