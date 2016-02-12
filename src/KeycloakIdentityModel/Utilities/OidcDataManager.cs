@@ -357,7 +357,9 @@ namespace KeycloakIdentityModel.Utilities
             if (string.IsNullOrEmpty(postLogoutRedirectUrl))
                 postLogoutRedirectUrl = _options.PostLogoutRedirectUrl;
 
-            if (Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.Relative))
+            if (string.IsNullOrEmpty(postLogoutRedirectUrl)) // Double-check options for empty/null
+                postLogoutRedirectUrl = requestUri.GetLeftPart(UriPartial.Authority);
+            else if (Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.Relative))
                 postLogoutRedirectUrl = requestUri.GetLeftPart(UriPartial.Authority) + postLogoutRedirectUrl;
 
             if (!Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.RelativeOrAbsolute))

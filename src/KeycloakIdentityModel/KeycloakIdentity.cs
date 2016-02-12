@@ -294,18 +294,17 @@ namespace KeycloakIdentityModel
         /// </summary>
         /// <param name="parameters"></param>
         /// <param name="baseUri"></param>
-        /// <param name="redirectUri"></param>
+        /// <param name="redirectUrl"></param>
         /// <returns></returns>
         public static async Task<Uri> GenerateLogoutUriAsync(IKeycloakParameters parameters, Uri baseUri,
-            Uri redirectUri)
+            string redirectUrl = null)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
-            if (redirectUri == null) throw new ArgumentNullException(nameof(redirectUri));
 
             // Generate logout URI and data
             var uriManager = await OidcDataManager.GetCachedContextAsync(parameters);
-            var logoutParams = uriManager.BuildEndSessionEndpointContent(baseUri, null, redirectUri.ToString());
+            var logoutParams = uriManager.BuildEndSessionEndpointContent(baseUri, null, redirectUrl);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
             // Return logout URI

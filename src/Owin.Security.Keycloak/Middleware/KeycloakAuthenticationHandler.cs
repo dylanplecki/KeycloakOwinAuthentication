@@ -255,7 +255,7 @@ namespace Owin.Security.Keycloak.Middleware
             // Redirect response to logout
             Response.Redirect(
                 (await
-                    KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri, new Uri(Options.PostLogoutRedirectUrl)))
+                    KeycloakIdentity.GenerateLogoutUriAsync(Options, Request.Uri))
                     .ToString());
         }
 
