@@ -1,3 +1,13 @@
+# THIS PROJECT IS NO LONGER BEING MAINTAINED
+
+*Please use this project at your own risk. The software is provided as-is.*
+
+I have unfortunately ran out of time to continue with this project's continual development and maintenance, and cannot accept pull requests, fix issues, or answer in-depth technical questions.
+
+This project is in need of a maintainer, if you would like to become one please ask, email, or otherwise reach out to Dylan Plecki (djp at plecki dot net).
+
+----------------------------------------------------------------------------------
+
 # Keycloak OWIN Authentication [![Build status](https://ci.appveyor.com/api/projects/status/xf1kvor22ya99h6w?svg=true)](https://ci.appveyor.com/project/DylanPlecki/keycloakowinauthentication)
 ###### Owin.Security.Keycloak - OWIN Authentication Middleware for C# Applications
 ----------------------------------------------------------------------------------
